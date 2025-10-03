@@ -8,9 +8,9 @@ struct MainTabView: View {
     @Namespace private var navNamespace
     @State private var showFullPlayer = false
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .bottom) {
-                TabView {
+        ZStack(alignment: .bottom) {
+            TabView {
+                NavigationView {
                     ContentView(
                         songManager: songManager,
                         audioPlayer: audioPlayer,
@@ -30,58 +30,61 @@ struct MainTabView: View {
                             }
                         }
                     }
-                    .tabItem {
-                        Label("Home", systemImage: "house")
-                    }
                     .navigationTitle("Home")
+                }
+                .tabItem {
+                    Label("Home", systemImage: "house")
+                }
 
+                NavigationView {
                     LibraryPage(
                         songManager: songManager,
                         audioPlayer: audioPlayer,
                         selectedSong: $selectedSong
                     )
+                    .navigationTitle("Library")
+                }
+                .tabItem {
+                    Label("Library", systemImage: "play.square.stack")
+                }
+
+                Text("Search")
                     .tabItem {
-                        Label("Library", systemImage: "play.square.stack")
+                        Label("Search", systemImage: "magnifyingglass")
                     }
 
-                    Text("Search")
-                        .tabItem {
-                            Label("Search", systemImage: "magnifyingglass")
-                        }
-
-                }
-                
-                let currentSelected = selectedSong.flatMap { sel in
-                    songManager.songs.first(where: { $0.url == sel.url }) ?? sel
-                }
-                if !showFullPlayer {
-                    MiniPlayerComponent(
-                        audioPlayer: audioPlayer,
-                        song: currentSelected,
-                        navNamespace: navNamespace
-                    )
-                    .padding(.horizontal, 2)
-                    .padding(.bottom, 60)
-                    .onTapGesture {
-                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-                            showFullPlayer = true
-                        }
-                    }
-                }
             }
-            .sheet(isPresented: $showFullPlayer) {
-                // Resolve latest selected instance when pushing
-                let currentSelected = selectedSong.flatMap { sel in
-                    songManager.songs.first(where: { $0.url == sel.url }) ?? sel
-                }
-                FullPlayerView(
+
+            let currentSelected = selectedSong.flatMap { sel in
+                songManager.songs.first(where: { $0.url == sel.url }) ?? sel
+            }
+            if !showFullPlayer {
+                MiniPlayerComponent(
                     audioPlayer: audioPlayer,
                     song: currentSelected,
                     navNamespace: navNamespace
                 )
-                .transition(.scale)
-                .presentationDragIndicator(.visible)
+                .padding(.horizontal, 2)
+                .padding(.bottom, 60)
+                .onTapGesture {
+                    withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                        showFullPlayer = true
+                    }
+                }
             }
+        }
+        .sheet(isPresented: $showFullPlayer) {
+            // Resolve latest selected instance when pushing
+            let currentSelected = selectedSong.flatMap { sel in
+                songManager.songs.first(where: { $0.url == sel.url }) ?? sel
+            }
+            FullPlayerView(
+                audioPlayer: audioPlayer,
+                song: currentSelected,
+                navNamespace: navNamespace
+            )
+            .transition(.scale)
+            .presentationDragIndicator(.visible)
         }
     }
 }

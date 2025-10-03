@@ -46,7 +46,7 @@ struct MiniPlayerComponent: View {
                     action: {
                         audioPlayer.togglePlayback()
                     },
-                    size: 34,
+                    size: 40,
                     color: .primary
                 )
 
@@ -55,7 +55,7 @@ struct MiniPlayerComponent: View {
                     action: {
                         // TODO)) Next/prev track
                     },
-                    size: 34,
+                    size: 40,
                     color: .primary
                 )
             }
@@ -90,14 +90,14 @@ struct MiniPlayerComponent: View {
                 IconButton(
                     icon: "play.fill",
                     action: {},
-                    size: 34,
+                    size: 40,
                     color: .primary
                 )
 
                 IconButton(
                     icon: "forward.fill",
                     action: {},
-                    size: 34,
+                    size: 40,
                     color: .primary
                 )
             }

@@ -5,14 +5,15 @@ struct ScalingButtonStyle: ButtonStyle {
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-        .frame(width: size, height: size)
+            .padding()
+            .frame(width: size, height: size)
             .background(.white.opacity(configuration.isPressed ? 0.2 : 0))
             .clipShape(.circle)
     }
 }
 
-struct  IconButton: View {
-    let icon: String // SF Symbol name
+struct IconButton: View {
+    let icon: String  // SF Symbol name
     let action: () -> Void
     let size: CGFloat
     let color: Color
