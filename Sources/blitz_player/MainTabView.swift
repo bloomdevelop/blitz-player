@@ -1,0 +1,87 @@
+import SwiftUI
+
+struct MainTabView: View {
+    @StateObject private var songManager = SongManager()
+    @StateObject private var audioPlayer = AudioPlayer()
+    @State private var selectedSong: Song?
+    @State private var showingFilePicker = false
+    @Namespace private var navNamespace
+    @State private var showFullPlayer = false
+    var body: some View {
+        NavigationStack {
+            ZStack(alignment: .bottom) {
+                TabView {
+                    ContentView(
+                        songManager: songManager,
+                        audioPlayer: audioPlayer,
+                        selectedSong: $selectedSong
+                    )
+                    .navigationTitle("Home")
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Open Folder") {
+                                showingFilePicker.toggle()
+                            }
+                            .sheet(isPresented: $showingFilePicker) {
+                                FolderPickerWrapper { folder in
+                                    print("Picked folder: \(folder)")
+                                    songManager.pickFolder(folder)
+                                }
+                            }
+                        }
+                    }
+                    .tabItem {
+                        Label("Home", systemImage: "house")
+                    }
+                    .navigationTitle("Home")
+
+                    LibraryPage(
+                        songManager: songManager,
+                        audioPlayer: audioPlayer,
+                        selectedSong: $selectedSong
+                    )
+                    .tabItem {
+                        Label("Library", systemImage: "play.square.stack")
+                    }
+
+                    Text("Search")
+                        .tabItem {
+                            Label("Search", systemImage: "magnifyingglass")
+                        }
+
+                }
+                
+                let currentSelected = selectedSong.flatMap { sel in
+                    songManager.songs.first(where: { $0.url == sel.url }) ?? sel
+                }
+                if !showFullPlayer {
+                    MiniPlayerComponent(
+                        audioPlayer: audioPlayer,
+                        song: currentSelected,
+                        navNamespace: navNamespace
+                    )
+                    .padding(.horizontal, 2)
+                    .padding(.bottom, 60)
+                    .onTapGesture {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+                            showFullPlayer = true
+                        }
+                    }
+                }
+            }
+            .sheet(isPresented: $showFullPlayer) {
+                // Resolve latest selected instance when pushing
+                let currentSelected = selectedSong.flatMap { sel in
+                    songManager.songs.first(where: { $0.url == sel.url }) ?? sel
+                }
+                FullPlayerView(
+                    audioPlayer: audioPlayer,
+                    song: currentSelected,
+                    navNamespace: navNamespace
+                )
+                .transition(.scale)
+                .presentationDragIndicator(.visible)
+            }
+        }
+    }
+}
