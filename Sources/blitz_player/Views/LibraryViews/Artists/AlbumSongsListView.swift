@@ -44,7 +44,6 @@ struct AlbumSongsListView: View {
             Text(albumName)
                 .font(.title2)
                 .fontWeight(.bold)
-                .foregroundColor(.white)
                 .multilineTextAlignment(.center)
                 .padding(.horizontal)
                 .padding(.top, 8)
@@ -53,7 +52,6 @@ struct AlbumSongsListView: View {
                 HStack {
                     Text(song.trackNumber != nil ? "\(song.trackNumber!)" : "-")
                         .font(.subheadline)
-                        .foregroundColor(.white.opacity(0.8))
                         .frame(width: 30, alignment: .leading)
 
                     if let artwork = song.artwork {

@@ -13,7 +13,7 @@ struct GenresView: View {
         List {
             ForEach(grouped.keys.sorted(), id: \.self) { genre in
                 NavigationLink(
-                    destination: SongsListView(
+                    destination: GenereView(
                         songs: grouped[genre] ?? [], audioPlayer: audioPlayer,
                         selectedSong: $selectedSong)
                 ) {

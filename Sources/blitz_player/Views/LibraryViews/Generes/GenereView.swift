@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SongsListView: View {
+struct GenereView: View {
     let songs: [Song]
     @ObservedObject var audioPlayer: AudioPlayer
     @Binding var selectedSong: Song?

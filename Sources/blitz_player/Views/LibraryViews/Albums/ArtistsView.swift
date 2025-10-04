@@ -13,9 +13,10 @@ struct ArtistsView: View {
         List {
             ForEach(grouped.keys.sorted(), id: \.self) { artist in
                 NavigationLink(
-                    destination: SongsListView(
-                        songs: grouped[artist] ?? [], audioPlayer: audioPlayer,
+                    destination: ArtistSongsListView(
+                        songs: grouped[artist] ?? [], artistName: artist, audioPlayer: audioPlayer,
                         selectedSong: $selectedSong)
+
                 ) {
                     Text(artist)
                 }
