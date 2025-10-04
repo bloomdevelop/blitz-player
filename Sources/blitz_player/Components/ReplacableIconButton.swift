@@ -7,7 +7,7 @@ struct ReplacableIconButtonStyle: ButtonStyle {
         configuration.label
             .padding()
             .frame(width: size, height: size)
-            .background(.white.opacity(configuration.isPressed ? 0.2 : 0))
+            .background(.primary.opacity(configuration.isPressed ? 0.2 : 0))
             .clipShape(.circle)
             .scaleEffect(configuration.isPressed ? 0.8 : 1)
             .animation(.spring(), value: configuration.isPressed)
