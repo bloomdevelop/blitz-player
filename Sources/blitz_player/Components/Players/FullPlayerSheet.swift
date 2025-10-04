@@ -1,8 +1,7 @@
 import SwiftUI
 
-struct FullPlayerView: View {
+struct FullPlayerSheet: View {
     @ObservedObject var audioPlayer: AudioPlayer
-    @Environment(\.dismiss) private var dismiss
 
     var song: Song?
     var navNamespace: Namespace.ID
@@ -25,7 +24,7 @@ struct FullPlayerView: View {
                 if let song = song {
                     Spacer()
 
-                    // Album Art
+                    // MARK: Album Art
                     if let artwork = song.artwork {
                         Image(uiImage: artwork)
                             .resizable()
@@ -49,7 +48,7 @@ struct FullPlayerView: View {
 
                     Spacer()
 
-                    // Song Info
+                    // MARK: Song Info
                     VStack(spacing: 8) {
                         Text(song.name)
                             .font(.title2)
@@ -89,7 +88,7 @@ struct FullPlayerView: View {
                     .padding(.vertical, 24)
                     .padding(.horizontal, 32)
 
-                    // Playback Controls
+                    // MARK: Playback Controls
                     HStack(spacing: 60) {
                         Button(action: {
                             // TODO)) Implement Next/Prev

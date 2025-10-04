@@ -49,11 +49,10 @@ struct MainView: View {
                     Label("Library", systemImage: "play.square.stack")
                 }
 
-                Text("Search")
+                Text("Settings")
                     .tabItem {
-                        Label("Search", systemImage: "magnifyingglass")
+                        Label("Settings", systemImage: "gear")
                     }
-
             }
 
             let currentSelected = selectedSong.flatMap { sel in
@@ -75,11 +74,10 @@ struct MainView: View {
             }
         }
         .sheet(isPresented: $showFullPlayer) {
-            // Resolve latest selected instance when pushing
             let currentSelected = selectedSong.flatMap { sel in
                 songManager.songs.first(where: { $0.url == sel.url }) ?? sel
             }
-            FullPlayerView(
+            FullPlayerSheet(
                 audioPlayer: audioPlayer,
                 song: currentSelected,
                 navNamespace: navNamespace

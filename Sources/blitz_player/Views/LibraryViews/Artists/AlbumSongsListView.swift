@@ -50,34 +50,15 @@ struct AlbumSongsListView: View {
 
             List(sortedSongs) { song in
                 HStack {
-                    Text(song.trackNumber != nil ? "\(song.trackNumber!)" : "-")
-                        .font(.subheadline)
-                        .frame(width: 30, alignment: .leading)
-
-                    if let artwork = song.artwork {
-                        Image(uiImage: artwork)
-                            .resizable()
-                            .aspectRatio(contentMode: .fill)
-                            .frame(width: 50, height: 50)
-                            .cornerRadius(4)
-                    } else {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(.gray.opacity(0.3))
-                            .frame(width: 50, height: 50)
-                            .overlay(
-                                Image(systemName: "music.note")
-                                    .foregroundColor(.gray)
-                            )
+                    if song.trackNumber != nil {
+                        Text("\(song.trackNumber!)")
+                            .font(.subheadline)
+                            .frame(width: 30, alignment: .leading)
                     }
 
                     VStack(alignment: .leading) {
                         Text(song.name)
                             .font(.headline)
-                        if let artist = song.artist {
-                            Text(artist)
-                                .font(.subheadline)
-                                .foregroundColor(.secondary)
-                        }
                     }
 
                     Spacer()
@@ -87,13 +68,12 @@ struct AlbumSongsListView: View {
                             .font(.subheadline)
                     }
                 }
-                .contentShape(Rectangle())
                 .onTapGesture {
                     selectedSong = song
                     audioPlayer.startPlayback(url: song.url)
                 }
             }
-            .padding(.horizontal, 32)
+            .padding(.horizontal)
             .padding(.top, 24)
             .padding(.bottom, 40)
         }

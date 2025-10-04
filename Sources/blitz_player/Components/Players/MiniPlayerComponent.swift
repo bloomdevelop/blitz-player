@@ -61,9 +61,9 @@ struct MiniPlayerComponent: View {
             }
             .padding(10)
             .background(.bar)
-            .shadow(radius: 4)
             .cornerRadius(12)
             .padding(.horizontal)
+            .shadow(radius: 4)
         } else {
             HStack {
                 RoundedRectangle(cornerRadius: 6)
@@ -103,9 +103,9 @@ struct MiniPlayerComponent: View {
             }
             .padding(10)
             .background(.bar)
-            .shadow(radius: 4)
             .cornerRadius(12)
             .padding(.horizontal)
+            .shadow(radius: 4)
         }
     }
 }
