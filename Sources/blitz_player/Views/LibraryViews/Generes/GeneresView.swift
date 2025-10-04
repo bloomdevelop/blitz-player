@@ -14,7 +14,7 @@ struct GenresView: View {
             ForEach(grouped.keys.sorted(), id: \.self) { genre in
                 NavigationLink(
                     destination: GenereView(
-                        songs: grouped[genre] ?? [], audioPlayer: audioPlayer,
+                        songs: grouped[genre] ?? [], genereName: genre, audioPlayer: audioPlayer,
                         selectedSong: $selectedSong)
                 ) {
                     Text(genre)

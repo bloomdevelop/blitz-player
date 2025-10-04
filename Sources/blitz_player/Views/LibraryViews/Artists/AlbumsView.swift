@@ -22,7 +22,8 @@ struct AlbumsView: View {
                     let artwork = albumSongs.first(where: { $0.artwork != nil })?.artwork
                     NavigationLink(
                         destination: AlbumSongsListView(
-                            songs: albumSongs, albumName: album, albumArtwork: artwork, audioPlayer: audioPlayer,
+                            songs: albumSongs, albumName: album, albumArtwork: artwork,
+                            audioPlayer: audioPlayer,
                             selectedSong: $selectedSong
                         )
                     ) {

@@ -1,12 +1,13 @@
 import SwiftUI
 
-struct MainTabView: View {
+struct MainView: View {
+    @Namespace private var navNamespace
     @StateObject private var songManager = SongManager()
     @StateObject private var audioPlayer = AudioPlayer()
     @State private var selectedSong: Song?
     @State private var showingFilePicker = false
-    @Namespace private var navNamespace
     @State private var showFullPlayer = false
+    
     var body: some View {
         ZStack(alignment: .bottom) {
             TabView {

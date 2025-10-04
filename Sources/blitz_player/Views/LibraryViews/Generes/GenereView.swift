@@ -2,6 +2,7 @@ import SwiftUI
 
 struct GenereView: View {
     let songs: [Song]
+    let genereName: String
     @ObservedObject var audioPlayer: AudioPlayer
     @Binding var selectedSong: Song?
 
@@ -40,5 +41,6 @@ struct GenereView: View {
                 audioPlayer.startPlayback(url: song.url)
             }
         }
+        .navigationTitle(genereName)
     }
 }
