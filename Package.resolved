@@ -1,5 +1,5 @@
 {
-  "originHash" : "71de002926c156bf7db6726471ba034d9fb1ab1e9ce5b40dc3c9bfae622086d2",
+  "originHash" : "ec15274b7267cecb3adae84fbd6d3097f9b9dc34400d63cd7556b5f2b2ce8956",
   "pins" : [
     {
       "identity" : "audiokit",
@@ -8,6 +8,15 @@
       "state" : {
         "revision" : "5b3fd238ef8ee95c9842ca4ea83ca58ee151e630",
         "version" : "5.6.5"
+      }
+    },
+    {
+      "identity" : "grdb.swift",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/groue/GRDB.swift",
+      "state" : {
+        "revision" : "2cf6c756e1e5ef6901ebae16576a7e4e4b834622",
+        "version" : "6.29.3"
       }
     }
   ],

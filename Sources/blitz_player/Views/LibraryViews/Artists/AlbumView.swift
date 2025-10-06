@@ -4,9 +4,10 @@ struct AlbumSongsListView: View {
   let songs: [Song]
   let albumName: String
   let albumArtwork: UIImage?
+  private let albumArtworkSize: CGFloat = 120
   @ObservedObject var audioPlayer: AudioPlayer
   @Binding var selectedSong: Song?
-  private let albumArtworkSize: CGFloat = 120
+  var namespace: Namespace.ID
 
   var sortedSongs: [Song] {
     songs.sorted { (lhs, rhs) -> Bool in
@@ -24,22 +25,7 @@ struct AlbumSongsListView: View {
 
   var body: some View {
     VStack {
-      if let artwork = albumArtwork {
-        Image(uiImage: artwork)
-          .resizable()
-          .aspectRatio(contentMode: .fill)
-          .frame(width: albumArtworkSize, height: albumArtworkSize)
-          .cornerRadius(4)
-          .cornerRadius(4)
-      } else {
-        RoundedRectangle(cornerRadius: 4)
-          .fill(.gray.opacity(0.3))
-          .frame(width: albumArtworkSize, height: albumArtworkSize)
-          .overlay(
-            Image(systemName: "music.note")
-              .foregroundColor(.gray)
-          )
-      }
+        ArtworkImage(artwork: albumArtwork, size: albumArtworkSize)
 
       Text(albumName)
         .font(.title2)
@@ -50,33 +36,24 @@ struct AlbumSongsListView: View {
 
       List(sortedSongs) { song in
         HStack {
-          if song.trackNumber != nil {
-            Text("\(song.trackNumber!)")
-              .font(.subheadline)
-              .frame(width: 30, alignment: .leading)
-          }
-
-          VStack(alignment: .leading) {
-            Text(song.name)
-              .font(.headline)
-          }
-
-          Spacer()
-
-          if let duration = song.formattedDuration {
-            Text(duration)
-              .font(.subheadline)
-          }
+          Text(song.name)
+          Text(song.formattedDuration ?? "Unknown")
+        }
+        .swipeActions(edge: .leading) {
+          Button(action: {
+            audioPlayer.startPlayback(url: song.url)
+          }) {
+            Label("Play", systemImage: "play.fill")
+          }.tint(.blue)
         }
         .onTapGesture {
           selectedSong = song
           audioPlayer.startPlayback(url: song.url)
         }
       }
-      .padding(.horizontal)
-      .padding(.top, 24)
-      .padding(.bottom, 40)
+      .listStyle(.plain)
     }
     .scrollContentBackground(.hidden)
+    .navigationTransition(.zoom(sourceID: "album", in: namespace))
   }
 }

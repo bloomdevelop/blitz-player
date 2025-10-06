@@ -26,22 +26,15 @@ struct FullPlayerSheet: View {
 
           // MARK: Album Art
           if let artwork = song.artwork {
-            Image(uiImage: artwork)
-              .resizable()
-              .aspectRatio(contentMode: .fill)
+            ArtworkImage(artwork: artwork, size: 320, cornerRadius: 16)
               .frame(width: 320, height: 320)
-              .cornerRadius(16)
               .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
           } else {
-            RoundedRectangle(cornerRadius: 16)
-              .fill(.gray.opacity(0.3))
+            // Use ArtworkImage with the song URL as a fallback source (AsyncImage will handle loading/placeholders)
+            ArtworkImage(url: song.url, size: 320, cornerRadius: 16)
               .frame(width: 320, height: 320)
-              .overlay(
-                Image(systemName: "music.note")
-                  .font(.system(size: 80))
-                  .foregroundColor(.white.opacity(0.6))
-              )
               .shadow(color: .black.opacity(0.3), radius: 20, x: 0, y: 10)
+              .clipShape(RoundedRectangle(cornerRadius: 16))
           }
 
           Spacer()

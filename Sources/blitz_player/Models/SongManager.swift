@@ -1,6 +1,7 @@
 import AVFoundation
 import Foundation
 import UIKit
+import GRDB
 
 // MARK: - Structs
 struct SongMetadata {
@@ -123,10 +124,20 @@ class SongManager: ObservableObject {
   private var currentSecurityScopedURL: URL?
 
   init() {
-    // Try to load from saved bookmark first, then fall back to documents directory
-    loadSongsFromSavedBookmark()
-    if songs.isEmpty {
-      loadSongs()
+    // Try to load from database first
+    Task {
+      await loadSongsFromDatabase()
+      if songs.isEmpty {
+        print("[DEBUG] Database empty, loading from saved bookmark")
+        // If database is empty, try to load from saved bookmark, then fall back to documents directory
+        loadSongsFromSavedBookmark()
+        if songs.isEmpty {
+          print("[DEBUG] No saved bookmark, loading from documents")
+          loadSongs()
+        }
+      } else {
+        print("[DEBUG] Loaded \(songs.count) songs from database")
+      }
     }
   }
 
@@ -201,27 +212,36 @@ class SongManager: ObservableObject {
         return
       }
 
-      // Create songs with metadata concurrently
-      let loadedSongs: [Song] = await withTaskGroup(of: (Int, Song).self) { group in
-        for (index, url) in audioFiles.enumerated() {
-          group.addTask {
-            let metadata = await Self.loadMetadata(from: url)
-            let song = Song(url: url, metadata: metadata)
-            return (index, song)
+      // Create songs with metadata concurrently, limited to 4 concurrent tasks per chunk
+      let chunkSize = 4
+      var indexedSongs: [(Int, Song)] = []
+      for start in stride(from: 0, to: audioFiles.count, by: chunkSize) {
+        let end = min(start + chunkSize, audioFiles.count)
+        let chunk = Array(audioFiles[start..<end])
+        let chunkResults = await withTaskGroup(of: (Int, Song).self) { group in
+          for (localIndex, url) in chunk.enumerated() {
+            let globalIndex = start + localIndex
+            group.addTask {
+              let metadata = await Self.loadMetadata(from: url)
+              let song = Song(url: url, metadata: metadata)
+              return (globalIndex, song)
+            }
           }
+          var results: [(Int, Song)] = []
+          for await result in group {
+            results.append(result)
+          }
+          return results
         }
-
-        var indexedSongs: [(Int, Song)] = []
-        for await result in group {
-          indexedSongs.append(result)
-        }
-
-        return indexedSongs.sorted { $0.0 < $1.0 }.map { $0.1 }
+        indexedSongs.append(contentsOf: chunkResults)
       }
+      let loadedSongs = indexedSongs.sorted { $0.0 < $1.0 }.map { $0.1 }
 
       // Publish song list on main actor
       await MainActor.run { [weak self] in
         self?.songs = loadedSongs
+        // Index songs in database
+        self?.indexSongsInDatabase(loadedSongs)
       }
     }
   }
@@ -387,6 +407,16 @@ class SongManager: ObservableObject {
     songs[index] = updatedSong
   }
 
+  func loadSongsFromDatabase() async {
+    do {
+      let songs = try DatabaseManager.shared.fetchSongsWithMetadata()
+      self.songs = songs
+      print("[INFO] Loaded \(songs.count) songs from database")
+    } catch {
+      print("[ERROR] Failed to load songs from database: \(error)")
+    }
+  }
+
   func loadSongsFromSavedBookmark() {
     guard let bookmarkData = UserDefaults.standard.data(forKey: "SavedMusicFolderBookmark")
     else {
@@ -428,6 +458,25 @@ class SongManager: ObservableObject {
       print("[INFO] Saved folder bookmark")
     } catch {
       print("[ERROR] Failed to create bookmark: \(error)")
+    }
+  }
+
+  private func indexSongsInDatabase(_ songs: [Song]) {
+    Task {
+      do {
+        try DatabaseManager.shared.clearAllSongs()
+
+        for song in songs {
+          let bookmark = try? song.url.bookmarkData(
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+          )
+          try DatabaseManager.shared.insertSong(song, bookmark: bookmark)
+        }
+        print("[INFO] Indexed \(songs.count) songs in database")
+      } catch {
+        print("[ERROR] Failed to index songs in database: \(error)")
+      }
     }
   }
 }

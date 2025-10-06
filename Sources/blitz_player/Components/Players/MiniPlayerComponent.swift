@@ -5,17 +5,36 @@ struct MiniPlayerComponent: View {
   @ObservedObject var audioPlayer: AudioPlayer
   var song: Song?
   var navNamespace: Namespace.ID
+  @State private var artworkURL: URL? = nil
 
   var body: some View {
     if let song = song {
       HStack {
         if let artwork = song.artwork {
-          Image(uiImage: artwork)
-            .resizable()
-            .aspectRatio(contentMode: .fill)
-            .frame(width: 40, height: 40)
-            .cornerRadius(6)
-            .matchedGeometryEffect(id: "albumArt", in: navNamespace)
+          if let artURL = artworkURL {
+            ArtworkImage(url: artURL, size: 40)
+              .matchedGeometryEffect(id: "albumArt", in: navNamespace)
+          } else {
+            Image(uiImage: artwork)
+              .resizable()
+              .aspectRatio(contentMode: .fill)
+              .frame(width: 40, height: 40)
+              .cornerRadius(6)
+              .matchedGeometryEffect(id: "albumArt", in: navNamespace)
+              .onAppear {
+                // If we already have a UIImage, write it out to a temporary file once
+                // so `ArtworkImage` (which uses AsyncImage) can reuse the same loading / placeholder UI.
+                // This is a lightweight approach and the temp file is created only once per view lifecycle.
+                if artworkURL == nil {
+                  if let data = artwork.pngData() {
+                    let temp = FileManager.default.temporaryDirectory.appendingPathComponent(
+                      "\(UUID().uuidString).png")
+                    try? data.write(to: temp)
+                    artworkURL = temp
+                  }
+                }
+              }
+          }
         } else {
           RoundedRectangle(cornerRadius: 6)
             .fill(.gray)

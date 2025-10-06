@@ -37,7 +37,7 @@ struct MainView: View {
           Label("Home", systemImage: "house")
         }
 
-        NavigationView {
+        NavigationStack {
           LibraryPage(
             songManager: songManager,
             audioPlayer: audioPlayer,
@@ -67,8 +67,10 @@ struct MainView: View {
         .padding(.horizontal, 2)
         .padding(.bottom, 60)
         .onTapGesture {
-          withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-            showFullPlayer = true
+          if currentSelected != nil {
+            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+              showFullPlayer = true
+            }
           }
         }
       }

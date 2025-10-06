@@ -12,21 +12,7 @@ struct ArtistSongsListView: View {
   var body: some View {
     List(songs) { song in
       HStack {
-        if let stored = loadedArtworks[song.id], let artwork = stored {
-          Image(uiImage: artwork)
-            .resizable()
-            .aspectRatio(contentMode: .fill)
-            .frame(width: 50, height: 50)
-            .cornerRadius(4)
-        } else {
-          RoundedRectangle(cornerRadius: 4)
-            .fill(.gray.opacity(0.3))
-            .frame(width: 50, height: 50)
-            .overlay(
-              Image(systemName: "music.note")
-                .foregroundColor(.gray)
-            )
-        }
+        ArtworkImage(url: song.url, size: 50)
 
         VStack(alignment: .leading) {
           Text(song.name)
