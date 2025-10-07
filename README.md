@@ -17,7 +17,7 @@ A iOS 18+ Music Player built with Swift and SwiftUI
     - [ ] Albums
         - [ ] Swipe Actions
             - [ ] Favorite
-            - [ ] Quick Play
+            - [X] Quick Play
             - [ ] Append to Queue
     - [X] Artists
     - [ ] All Songs
@@ -56,3 +56,4 @@ A iOS 18+ Music Player built with Swift and SwiftUI
 - Added small animation and haptic on MiniPlayer when doing some actions
 - Fixed some part of the FullPlayer UI being unreadable when there's no cover art
 - Fixed Quick Play action not working properly
+- New Feature: Crossfade
