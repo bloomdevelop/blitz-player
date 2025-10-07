@@ -186,6 +186,9 @@ class SongManager: ObservableObject {
         Logger.shared.info("Restored security-scoped access", category: "SongManager")
       } catch {
         Logger.shared.error("Failed to restore security-scoped access: \(error)", category: "SongManager")
+        // Remove invalid bookmark to prevent repeated failures
+        UserDefaults.standard.removeObject(forKey: "SavedMusicFolderBookmark")
+        UserDefaults.standard.removeObject(forKey: "SavedMusicFolderPath")
       }
     }
   }
@@ -505,6 +508,9 @@ class SongManager: ObservableObject {
       } catch {
         Logger.shared.error("Failed to resolve bookmark: \(error)", category: "SongManager")
         self.setSecurityScopedFolder(nil)
+        // Remove invalid bookmark to prevent repeated failures
+        UserDefaults.standard.removeObject(forKey: "SavedMusicFolderBookmark")
+        UserDefaults.standard.removeObject(forKey: "SavedMusicFolderPath")
       }
     }
   }
