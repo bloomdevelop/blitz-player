@@ -67,32 +67,32 @@ struct DBSong {
 class DatabaseManager {
     static let shared = DatabaseManager()
 
-    let dbPool: DatabasePool
+    let dbQueue: DatabaseQueue
 
     private init() {
         let databaseURL = try! FileManager.default
             .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             .appendingPathComponent("blitz_player.sqlite")
 
-        Logger.shared.info("Initializing database at: \(databaseURL.path)", category: "Database")
+        Task { Logger.shared.info("Initializing database at: \(databaseURL.path)", category: "Database") }
 
-        dbPool = try! DatabasePool(path: databaseURL.path)
+        dbQueue = try! DatabaseQueue(path: databaseURL.path)
 
         try! migrate()
     }
 
-    private func migrate() throws {
-        Logger.shared.info("Starting database migration", category: "Database")
-        try dbPool.write { db in
+    private nonisolated func migrate() throws {
+        Task { await Logger.shared.info("Starting database migration", category: "Database") }
+        try dbQueue.write { db in
             // Check if we need to recreate tables (migrating from GRDB to SQLiteData)
             let tableExists = try db.tableExists("artist")
             if tableExists {
-                Logger.shared.info("Existing database found, checking schema compatibility", category: "Database")
+                Task { await Logger.shared.info("Existing database found, checking schema compatibility", category: "Database") }
                 // Check if the artist table has the expected structure
                 do {
                     let _ = try db.execute(sql: "SELECT id, name FROM artist LIMIT 1")
                 } catch {
-                    Logger.shared.warning("Artist table schema incompatible, recreating database", category: "Database")
+                    Task { await Logger.shared.warning("Artist table schema incompatible, recreating database", category: "Database") }
                     // Drop existing tables and recreate
                     try db.execute(sql: "DROP TABLE IF EXISTS song")
                     try db.execute(sql: "DROP TABLE IF EXISTS album")
@@ -147,87 +147,78 @@ class DatabaseManager {
             try db.execute(sql: "CREATE INDEX IF NOT EXISTS song_genre_idx ON song(genreId)")
             try db.execute(sql: "CREATE INDEX IF NOT EXISTS song_title_idx ON song(title)")
         }
-        Logger.shared.info("Database migration completed successfully", category: "Database")
+        Task { await Logger.shared.info("Database migration completed successfully", category: "Database") }
     }
-    // Resolve bookmark off the main actor to avoid UI blocking
-    private static func resolveBookmarkAsync(_ bookmarkData: Data) async throws -> URL {
-        try await Task.detached(priority: .userInitiated) { () throws -> URL in
-            var isStale = false
-            let url = try URL(
-                resolvingBookmarkData: bookmarkData,
-                options: [.withoutUI, .withoutMounting],
-                relativeTo: nil,
-                bookmarkDataIsStale: &isStale
-            )
-            if isStale {
-                print("[WARNING] Bookmark is stale, folder may have moved")
-            }
-            return url
-        }.value
-    }
+    
 
     // MARK: - CRUD Operations
 
-    func insertSong(_ song: Song, bookmark: Data?) throws {
-        Logger.shared.info("Inserting song: \(song.title ?? "Unknown") by \(song.artist ?? "Unknown Artist")", category: "Database")
-        try dbPool.write { db in
-            // Insert or find artist
-            var artistId: Int64?
-            if let artistName = song.artist {
-                try db.execute(sql: "INSERT OR IGNORE INTO artist (name) VALUES (?)", arguments: [artistName])
-                artistId = try Int64.fetchOne(db, sql: "SELECT id FROM artist WHERE name = ?", arguments: [artistName])
-                Logger.shared.debug("Artist '\(artistName)' ID: \(artistId ?? -1)", category: "Database")
-            }
+    nonisolated func insertSong(_ song: Song, bookmark: Data?) async throws {
+        Task { await Logger.shared.info("Inserting song: \(song.title ?? "Unknown") by \(song.artist ?? "Unknown Artist")", category: "Database") }
+        try await Task.detached(priority: .userInitiated) {
+            try self.dbQueue.write { db in
+                // Insert or find artist
+                var artistId: Int64?
+                if let artistName = song.artist {
+                    try db.execute(sql: "INSERT OR IGNORE INTO artist (name) VALUES (?)", arguments: [artistName])
+                    artistId = try Int64.fetchOne(db, sql: "SELECT id FROM artist WHERE name = ?", arguments: [artistName])
+                    Task { await Logger.shared.debug("Artist '\(artistName)' ID: \(artistId ?? -1)", category: "Database") }
+                }
 
-            // Insert or find album
-            var albumId: Int64?
-            if let albumName = song.album {
-                try db.execute(sql: "INSERT OR IGNORE INTO album (name, artistId) VALUES (?, ?)", arguments: [albumName, artistId])
-                albumId = try Int64.fetchOne(db, sql: "SELECT id FROM album WHERE name = ? AND (artistId IS ? OR (artistId IS NULL AND ? IS NULL))", arguments: [albumName, artistId, artistId])
-                Logger.shared.debug("Album '\(albumName)' ID: \(albumId ?? -1)", category: "Database")
-            }
+                // Insert or find album
+                var albumId: Int64?
+                if let albumName = song.album {
+                    try db.execute(sql: "INSERT OR IGNORE INTO album (name, artistId) VALUES (?, ?)", arguments: [albumName, artistId])
+                    albumId = try Int64.fetchOne(db, sql: "SELECT id FROM album WHERE name = ? AND (artistId IS ? OR (artistId IS NULL AND ? IS NULL))", arguments: [albumName, artistId, artistId])
+                    Task { await Logger.shared.debug("Album '\(albumName)' ID: \(albumId ?? -1)", category: "Database") }
+                }
 
-            // Insert or find genre
-            var genreId: Int64?
-            if let genreName = song.genre {
-                try db.execute(sql: "INSERT OR IGNORE INTO genre (name) VALUES (?)", arguments: [genreName])
-                genreId = try Int64.fetchOne(db, sql: "SELECT id FROM genre WHERE name = ?", arguments: [genreName])
-                Logger.shared.debug("Genre '\(genreName)' ID: \(genreId ?? -1)", category: "Database")
-            }
+                // Insert or find genre
+                var genreId: Int64?
+                if let genreName = song.genre {
+                    try db.execute(sql: "INSERT OR IGNORE INTO genre (name) VALUES (?)", arguments: [genreName])
+                    genreId = try Int64.fetchOne(db, sql: "SELECT id FROM genre WHERE name = ?", arguments: [genreName])
+                    Task { await Logger.shared.debug("Genre '\(genreName)' ID: \(genreId ?? -1)", category: "Database") }
+                }
 
-            // Insert song
-            var dbSong = DBSong(from: song, bookmark: bookmark)
-            dbSong.artistId = artistId
-            dbSong.albumId = albumId
-            dbSong.genreId = genreId
-            try db.execute(sql: """
-                INSERT INTO song (title, artistId, albumId, genreId, duration, trackNumber, releaseYear, filePath, fileURLBookmark, artworkData)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """, arguments: [
-                    dbSong.title, dbSong.artistId, dbSong.albumId, dbSong.genreId,
-                    dbSong.duration, dbSong.trackNumber, dbSong.releaseYear,
-                    dbSong.filePath, dbSong.fileURLBookmark, dbSong.artworkData
-                ])
-        }
-        Logger.shared.info("Successfully inserted song: \(song.title ?? "Unknown")", category: "Database")
+                // Insert song
+                var dbSong = DBSong(from: song, bookmark: bookmark)
+                dbSong.artistId = artistId
+                dbSong.albumId = albumId
+                dbSong.genreId = genreId
+                try db.execute(sql: """
+                    INSERT INTO song (title, artistId, albumId, genreId, duration, trackNumber, releaseYear, filePath, fileURLBookmark, artworkData)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, arguments: [
+                        dbSong.title, dbSong.artistId, dbSong.albumId, dbSong.genreId,
+                        dbSong.duration, dbSong.trackNumber, dbSong.releaseYear,
+                        dbSong.filePath, dbSong.fileURLBookmark, dbSong.artworkData
+                    ])
+            }
+        }.value
+        Task { await Logger.shared.info("Successfully inserted song: \(song.title ?? "Unknown")", category: "Database") }
     }
 
-    func fetchAllSongs() throws -> [DBSong] {
-        try dbPool.read { db in
-            try #sql("SELECT * FROM song", as: DBSong.self).fetchAll(db)
-        }
+    nonisolated func fetchAllSongs() async throws -> [DBSong] {
+        try await Task.detached {
+            try self.dbQueue.read { db in
+                try #sql("SELECT * FROM song", as: DBSong.self).fetchAll(db)
+            }
+        }.value
     }
 
-    func fetchSongsWithMetadata() throws -> [Song] {
-        let songData = try dbPool.read { db in
-            try #sql("""
-                SELECT song.*, artist.name as artistName, album.name as albumName, genre.name as genreName
-                FROM song
-                LEFT JOIN artist ON song.artistId = artist.id
-                LEFT JOIN album ON song.albumId = album.id
-                LEFT JOIN genre ON song.genreId = genre.id
-                """, as: (DBSong, String?, String?, String?).self).fetchAll(db)
-        }
+    nonisolated func fetchSongsWithMetadata() async throws -> [Song] {
+        let songData = try await Task.detached {
+            try self.dbQueue.read { db in
+                try #sql("""
+                    SELECT song.*, artist.name as artistName, album.name as albumName, genre.name as genreName
+                    FROM song
+                    LEFT JOIN artist ON song.artistId = artist.id
+                    LEFT JOIN album ON song.albumId = album.id
+                    LEFT JOIN genre ON song.genreId = genre.id
+                    """, as: (DBSong, String?, String?, String?).self).fetchAll(db)
+            }
+        }.value
 
         return songData.map { (dbSong, artistName, albumName, genreName) in
             let url = URL(fileURLWithPath: dbSong.filePath)
@@ -247,18 +238,20 @@ class DatabaseManager {
         }
     }
 
-    func searchSongs(query: String) throws -> [Song] {
+    nonisolated func searchSongs(query: String) async throws -> [Song] {
         let pattern = "%\(query)%"
-        let songData = try dbPool.read { db in
-            try #sql("""
-                SELECT song.*, artist.name as artistName, album.name as albumName, genre.name as genreName
-                FROM song
-                LEFT JOIN artist ON song.artistId = artist.id
-                LEFT JOIN album ON song.albumId = album.id
-                LEFT JOIN genre ON song.genreId = genre.id
-                WHERE song.title LIKE \(raw: pattern) OR song.filePath LIKE \(raw: pattern)
-                """, as: (DBSong, String?, String?, String?).self).fetchAll(db)
-        }
+        let songData = try await Task.detached {
+            try self.dbQueue.read { db in
+                try #sql("""
+                    SELECT song.*, artist.name as artistName, album.name as albumName, genre.name as genreName
+                    FROM song
+                    LEFT JOIN artist ON song.artistId = artist.id
+                    LEFT JOIN album ON song.albumId = album.id
+                    LEFT JOIN genre ON song.genreId = genre.id
+                    WHERE song.title LIKE \(raw: pattern) OR song.filePath LIKE \(raw: pattern)
+                    """, as: (DBSong, String?, String?, String?).self).fetchAll(db)
+            }
+        }.value
 
         return songData.map { (dbSong, artistName, albumName, genreName) in
             var song = Song(url: URL(fileURLWithPath: dbSong.filePath))
@@ -277,12 +270,14 @@ class DatabaseManager {
         }
     }
 
-    func clearAllSongs() throws {
-        try dbPool.write { db in
-            try #sql("DELETE FROM song").execute(db)
-            try #sql("DELETE FROM album").execute(db)
-            try #sql("DELETE FROM artist").execute(db)
-            try #sql("DELETE FROM genre").execute(db)
-        }
+    nonisolated func clearAllSongs() async throws {
+        try await Task.detached {
+            try self.dbQueue.write { db in
+                try #sql("DELETE FROM song").execute(db)
+                try #sql("DELETE FROM album").execute(db)
+                try #sql("DELETE FROM artist").execute(db)
+                try #sql("DELETE FROM genre").execute(db)
+            }
+        }.value
     }
 }

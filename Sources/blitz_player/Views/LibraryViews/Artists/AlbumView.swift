@@ -7,7 +7,6 @@ struct AlbumSongsListView: View {
   private let albumArtworkSize: CGFloat = 120
   @ObservedObject var audioPlayer: AudioPlayer
   @Binding var selectedSong: Song?
-  var namespace: Namespace.ID
 
   var sortedSongs: [Song] {
     songs.sorted { (lhs, rhs) -> Bool in
@@ -26,7 +25,6 @@ struct AlbumSongsListView: View {
   var body: some View {
     VStack {
         ArtworkImage(artwork: albumArtwork, size: albumArtworkSize)
-          .matchedGeometryEffect(id: albumName, in: namespace)
 
       Text(albumName)
         .font(.title2)
@@ -55,6 +53,5 @@ struct AlbumSongsListView: View {
       .listStyle(.plain)
     }
     .scrollContentBackground(.hidden)
-    .navigationTransition(.zoom(sourceID: albumName, in: namespace))
   }
 }

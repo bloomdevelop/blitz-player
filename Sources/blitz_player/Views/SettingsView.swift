@@ -2,7 +2,9 @@ import SwiftUI
 
 struct SettingsView: View {
     @ObservedObject var songManager: SongManager
+    @ObservedObject var audioPlayer: AudioPlayer
     @State private var showFolderPicker: Bool = false
+    @State private var crossfadeDuration: Double = 2.0
 
     var body: some View {
         NavigationStack {
@@ -47,6 +49,30 @@ struct SettingsView: View {
                     }
                 }
 
+                Section(header: Text("Playback")) {
+                    VStack(alignment: .leading) {
+                        Text("Crossfade Duration")
+                            .font(.headline)
+                        Text("Duration of crossfade between tracks (0 = disabled)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Slider(value: $crossfadeDuration, in: 0...10, step: 0.5) {
+                            Text("Crossfade")
+                        } minimumValueLabel: {
+                            Text("0s")
+                        } maximumValueLabel: {
+                            Text("10s")
+                        }
+                        .onChange(of: crossfadeDuration) { oldValue, newValue in
+                            audioPlayer.updateCrossfadeDuration(newValue)
+                        }
+                        Text("\(String(format: "%.1f", crossfadeDuration)) seconds")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 8)
+                }
+
                 Section(header: Text("Debug")) {
                     NavigationLink(destination: DebugLogsView()) {
                         HStack {
@@ -62,7 +88,7 @@ struct SettingsView: View {
                             .foregroundColor(.red)
                     }
                     .onTapGesture {
-                        songManager.resetDatabase()
+                        Task { await songManager.resetDatabase() }
                     }
                 }
             }

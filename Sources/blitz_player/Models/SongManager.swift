@@ -479,7 +479,7 @@ class SongManager: ObservableObject {
   func loadSongsFromDatabase() async {
     Logger.shared.info("Loading songs from database", category: "SongManager")
     do {
-      let songs = try DatabaseManager.shared.fetchSongsWithMetadata()
+      let songs = try await DatabaseManager.shared.fetchSongsWithMetadata()
       self.songs = songs
       Logger.shared.info("Loaded \(songs.count) songs from database", category: "SongManager")
     } catch {
@@ -514,11 +514,11 @@ class SongManager: ObservableObject {
     loadSongs(from: docs)
   }
 
-  func resetDatabase() {
+  func resetDatabase() async {
     Logger.shared.info("Resetting database", category: "SongManager")
     do {
       // Clear all songs from database
-      try DatabaseManager.shared.clearAllSongs()
+      try await DatabaseManager.shared.clearAllSongs()
       // Clear songs array
       songs = []
       // Remove saved bookmark
@@ -553,14 +553,14 @@ class SongManager: ObservableObject {
   private func indexSongsInDatabase(_ songs: [Song]) async {
     Logger.shared.info("Indexing \(songs.count) songs in database", category: "SongManager")
     do {
-      try DatabaseManager.shared.clearAllSongs()
+      try await DatabaseManager.shared.clearAllSongs()
 
       for (index, song) in songs.enumerated() {
         let bookmark = try? song.url.bookmarkData(
           includingResourceValuesForKeys: nil,
           relativeTo: nil
         )
-        try DatabaseManager.shared.insertSong(song, bookmark: bookmark)
+        try await DatabaseManager.shared.insertSong(song, bookmark: bookmark)
 
         // Update progress
         let progress = 0.9 + (Double(index + 1) / Double(songs.count)) * 0.1

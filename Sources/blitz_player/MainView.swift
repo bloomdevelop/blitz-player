@@ -40,7 +40,7 @@ struct MainView: View {
         }
 
         NavigationStack {
-          SettingsView(songManager: songManager)
+          SettingsView(songManager: songManager, audioPlayer: audioPlayer)
             .navigationTitle("Settings")
         }
         .tabItem {

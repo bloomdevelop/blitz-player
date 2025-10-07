@@ -1,20 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-	<key>CFBundleName</key>
-	<string>blitz_player</string>
-	<key>CFBundleIdentifier</key>
-	<string>io.github.bloomdevelop.blitz-player</string>
-	<key>UIFileSharingEnabled</key>
-	<true/>
-	<key>UISupportsDocumentBrowser</key>
-	<true/>
-	<key>LSSupportsOpeningDocumentsInPlace</key>
-	<true/>
-	<key>CFBundleDisplayName</key>
-	<string>Blitz Player</string>
-	<key>UIBackgroundModes</key>
-	<string>audio</string>
-</dict>
+	<dict>
+		<key>CFBundleName</key>
+		<string>blitz_player</string>
+		<key>CFBundleIdentifier</key>
+		<string>io.github.bloomdevelop.blitz-player</string>
+		<key>UIFileSharingEnabled</key>
+		<true />
+		<key>UISupportsDocumentBrowser</key>
+		<true />
+		<key>LSSupportsOpeningDocumentsInPlace</key>
+		<true />
+		<key>CFBundleDisplayName</key>
+		<string>Blitz Player</string>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>audio</string>
+		</array>
+	</dict>
 </plist>

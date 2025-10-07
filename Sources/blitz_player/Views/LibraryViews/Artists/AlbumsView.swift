@@ -4,7 +4,6 @@ struct AlbumsView: View {
   let songs: [Song]
   @ObservedObject var audioPlayer: AudioPlayer
   @Binding var selectedSong: Song?
-  @Namespace private var namespace
   @State private var grouped: [String: [Song]] = [:]
 
   var body: some View {
@@ -23,13 +22,11 @@ struct AlbumsView: View {
             destination: AlbumSongsListView(
               songs: albumSongs, albumName: album, albumArtwork: artwork,
               audioPlayer: audioPlayer,
-              selectedSong: $selectedSong,
-              namespace: namespace
+              selectedSong: $selectedSong
             )
           ) {
             VStack(alignment: .leading) {
               ArtworkImage(artwork, size: 150)
-                .matchedTransitionSource(id: album, in: namespace)
               Text(album)
                 .font(.body)
                 .foregroundColor(.primary)
