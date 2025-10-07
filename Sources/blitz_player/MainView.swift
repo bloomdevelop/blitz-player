@@ -8,6 +8,10 @@ struct MainView: View {
   @State private var showingFilePicker = false
   @State private var showFullPlayer = false
 
+  init() {
+    audioPlayer.songManager = songManager
+  }
+
   var body: some View {
     ZStack(alignment: .bottom) {
       TabView {
@@ -17,20 +21,6 @@ struct MainView: View {
             audioPlayer: audioPlayer,
             selectedSong: $selectedSong
           )
-          .navigationTitle("Home")
-          .toolbar {
-            ToolbarItem(placement: .topBarTrailing) {
-              Button("Open Folder") {
-                showingFilePicker.toggle()
-              }
-              .sheet(isPresented: $showingFilePicker) {
-                FolderPickerWrapper { folder in
-                  print("Picked folder: \(folder)")
-                  songManager.pickFolder(folder)
-                }
-              }
-            }
-          }
           .navigationTitle("Home")
         }
         .tabItem {
@@ -49,31 +39,35 @@ struct MainView: View {
           Label("Library", systemImage: "play.square.stack")
         }
 
-        Text("Settings")
-          .tabItem {
-            Label("Settings", systemImage: "gear")
-          }
+        NavigationStack {
+          SettingsView(songManager: songManager)
+            .navigationTitle("Settings")
+        }
+        .tabItem {
+          Label("Settings", systemImage: "gear")
+        }
       }
 
       let currentSelected = selectedSong.flatMap { sel in
         songManager.songs.first(where: { $0.url == sel.url }) ?? sel
       }
-      if !showFullPlayer {
-        MiniPlayerComponent(
-          audioPlayer: audioPlayer,
-          song: currentSelected,
-          navNamespace: navNamespace
-        )
-        .padding(.horizontal, 2)
-        .padding(.bottom, 60)
-        .onTapGesture {
-          if currentSelected != nil {
-            withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
-              showFullPlayer = true
-            }
+      MiniPlayerComponent(
+         audioPlayer: audioPlayer,
+         songManager: songManager,
+         selectedSong: $selectedSong,
+         song: currentSelected,
+         navNamespace: navNamespace
+       )
+      .padding(.horizontal, 2)
+      .padding(.bottom, 60)
+      .onTapGesture {
+        if currentSelected != nil {
+          withAnimation(.spring(response: 0.4, dampingFraction: 0.85)) {
+            showFullPlayer = true
           }
         }
       }
+      .onChange(of: audioPlayer.currentSong) { oldValue, newValue in selectedSong = newValue }
     }
     .environmentObject(songManager)
     .sheet(isPresented: $showFullPlayer) {
@@ -82,6 +76,8 @@ struct MainView: View {
       }
       FullPlayerSheet(
         audioPlayer: audioPlayer,
+        songManager: songManager,
+        selectedSong: $selectedSong,
         song: currentSelected,
         navNamespace: navNamespace
       )

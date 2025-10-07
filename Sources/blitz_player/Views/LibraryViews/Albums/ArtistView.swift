@@ -27,7 +27,7 @@ struct ArtistSongsListView: View {
       .contentShape(Rectangle())
       .onTapGesture {
         selectedSong = song
-        audioPlayer.startPlayback(url: song.url)
+        audioPlayer.startPlayback(song: song)
       }
       .onAppear {
         guard loadedArtworks[song.id] == nil else { return }

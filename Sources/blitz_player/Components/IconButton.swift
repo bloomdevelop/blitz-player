@@ -23,9 +23,11 @@ struct IconButton: View {
 
   var body: some View {
     Button(action: action) {
-      Image(systemName: icon)
-        .font(.system(size: size * 0.672))
-        .foregroundColor(color)
+      ZStack {
+        Image(systemName: icon)
+          .font(.system(size: size * 0.672))
+          .foregroundColor(color)
+      }
     }
     .buttonStyle(ScalingButtonStyle(size: size, color: color))
   }

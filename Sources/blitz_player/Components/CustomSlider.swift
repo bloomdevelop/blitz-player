@@ -7,6 +7,7 @@ struct CustomSlider: View {
 
   let currentTime: String
   let totalDuration: String
+  var onEditingChanged: ((Bool) -> Void)?
 
   // value is expected to be normalized between 0.0 and 1.0
   // The view renders a pill-shaped track with a lighter filled portion and no visible thumb.
@@ -39,6 +40,7 @@ struct CustomSlider: View {
           DragGesture(minimumDistance: 0)
             .updating($isDragging) { _, state, _ in
               state = true
+              onEditingChanged?(true)
             }
             .onChanged { gesture in
               if scaleFactor == 1.0 {
@@ -53,6 +55,7 @@ struct CustomSlider: View {
               withAnimation {
                 scaleFactor = 1.0
               }
+              onEditingChanged?(false)
             }
         )
         .animation(.easeInOut(duration: 0.12), value: value)

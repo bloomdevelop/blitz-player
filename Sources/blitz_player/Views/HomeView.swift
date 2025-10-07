@@ -49,57 +49,104 @@ struct ContentView: View {
     }
   }
 
+  // Limit to first 20 songs for performance
+  private var displayedSongs: [Song] {
+    Array(songManager.songs.prefix(20))
+  }
+
   var body: some View {
     if !songManager.songs.isEmpty {
       ScrollView {
-        LazyVGrid(
-          columns: [
-            GridItem(.adaptive(minimum: 150, maximum: 200)),
-            GridItem(.adaptive(minimum: 150, maximum: 200)),
-          ], spacing: 16
-        ) {
-          ForEach(songManager.songs) { song in
-            VStack(alignment: .leading, spacing: 8) {
-              if let artwork = song.artwork ?? loadedArtworks[song.id] {
-                Image(uiImage: artwork)
-                  .resizable()
-                  .aspectRatio(contentMode: .fill)
-                  .frame(width: 150, height: 150)
-                  .cornerRadius(8)
-                  .shadow(radius: 4)
-              } else {
-                ArtworkImage(url: song.url, size: 150)
-                  .onAppear {
-                    Task {
-                      if loadedArtworks[song.id] == nil {
-                        let artwork = await Self.loadArtwork(from: song.url)
-                        await MainActor.run {
-                          loadedArtworks[song.id] = artwork
+        VStack(spacing: 20) {
+          // Header with library info
+          VStack(alignment: .leading, spacing: 8) {
+            Text("Recently Added")
+              .font(.title2)
+              .fontWeight(.bold)
+            Text("Showing \(displayedSongs.count) of \(songManager.songs.count) songs")
+              .font(.subheadline)
+              .foregroundColor(.secondary)
+          }
+          .frame(maxWidth: .infinity, alignment: .leading)
+          .padding(.horizontal)
+
+          LazyVGrid(
+            columns: [
+              GridItem(.adaptive(minimum: 150, maximum: 200)),
+              GridItem(.adaptive(minimum: 150, maximum: 200)),
+            ], spacing: 16
+          ) {
+            ForEach(displayedSongs) { song in
+              VStack(alignment: .leading, spacing: 8) {
+                if let artwork = song.artwork ?? loadedArtworks[song.id] {
+                  Image(uiImage: artwork)
+                    .resizable()
+                    .aspectRatio(contentMode: .fill)
+                    .frame(width: 150, height: 150)
+                    .cornerRadius(8)
+                    .shadow(radius: 4)
+                } else {
+                  ArtworkImage(url: song.url, size: 150)
+                    .onAppear {
+                      Task {
+                        if loadedArtworks[song.id] == nil {
+                          let artwork = await Self.loadArtwork(from: song.url)
+                          await MainActor.run {
+                            loadedArtworks[song.id] = artwork
+                          }
                         }
                       }
                     }
-                  }
+                }
+                HStack {
+                  Text(song.name)
+                    .font(.headline)
+                    .lineLimit(1)
+                }
+                if let artist = song.artist {
+                  Text(artist)
+                    .font(.subheadline)
+                    .foregroundColor(.secondary)
+                    .lineLimit(1)
+                }
               }
-              HStack {
-                Text(song.name)
+              .padding()
+              .frame(width: 170, height: 220)
+              .background(
+                RoundedRectangle(cornerRadius: 8)
+                  .fill(Color(.systemBackground))
+                  .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
+              )
+              .contentShape(Rectangle())
+              .onTapGesture {
+                selectedSong = song
+                audioPlayer.startPlayback(song: song)
               }
             }
-            .padding()
-            .frame(width: 170, height: 220)
-            .background(
-              RoundedRectangle(cornerRadius: 8)
-                .fill(Color(.systemBackground))
-                .shadow(color: Color.black.opacity(0.1), radius: 2, x: 0, y: 1)
-            )
-            .contentShape(Rectangle())
-            .onTapGesture {
-              selectedSong = song
-              audioPlayer.startPlayback(url: song.url)
-            }
-            .padding()
           }
-          .padding()
+          .padding(.horizontal)
+
+          // Browse Library button
+          if songManager.songs.count > 20 {
+            NavigationLink {
+              LibraryPage(songManager: songManager, audioPlayer: audioPlayer, selectedSong: $selectedSong)
+            } label: {
+              HStack {
+                Image(systemName: "music.note.list")
+                Text("Browse Full Library")
+                Spacer()
+                Image(systemName: "chevron.right")
+              }
+              .padding()
+              .background(
+                RoundedRectangle(cornerRadius: 12)
+                  .fill(Color(.secondarySystemBackground))
+              )
+              .padding(.horizontal)
+            }
+          }
         }
+        .padding(.vertical)
       }
     } else {
       ContentUnavailableView {

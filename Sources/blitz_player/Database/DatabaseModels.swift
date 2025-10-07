@@ -1,58 +1,33 @@
 @preconcurrency import Foundation
 import GRDB
+import SQLiteData
+import os.log
+import UIKit
 
 // MARK: - Database Models
 
-struct Artist: Codable, FetchableRecord, PersistableRecord {
-    var databaseId: Int64?
+@Table
+struct Artist {
+    var id: Int64
     var name: String
-
-    enum Columns {
-        static let databaseId = Column(CodingKeys.databaseId)
-        static let name = Column(CodingKeys.name)
-    }
-
-    init(databaseId: Int64? = nil, name: String) {
-        self.databaseId = databaseId
-        self.name = name
-    }
 }
 
-struct Album: Codable, FetchableRecord, PersistableRecord {
-    var databaseId: Int64?
+@Table
+struct Album {
+    var id: Int64
     var name: String
     var artistId: Int64?
-
-    enum Columns {
-        static let databaseId = Column(CodingKeys.databaseId)
-        static let name = Column(CodingKeys.name)
-        static let artistId = Column(CodingKeys.artistId)
-    }
-
-    init(databaseId: Int64? = nil, name: String, artistId: Int64? = nil) {
-        self.databaseId = databaseId
-        self.name = name
-        self.artistId = artistId
-    }
 }
 
-struct Genre: Codable, FetchableRecord, PersistableRecord {
-    var databaseId: Int64?
+@Table
+struct Genre {
+    var id: Int64
     var name: String
-
-    enum Columns {
-        static let databaseId = Column(CodingKeys.databaseId)
-        static let name = Column(CodingKeys.name)
-    }
-
-    init(databaseId: Int64? = nil, name: String) {
-        self.databaseId = databaseId
-        self.name = name
-    }
 }
 
-struct DBSong: Codable, FetchableRecord, PersistableRecord {
-    var databaseId: Int64?
+@Table
+struct DBSong {
+    var id: Int64
     var title: String?
     var artistId: Int64?
     var albumId: Int64?
@@ -62,42 +37,23 @@ struct DBSong: Codable, FetchableRecord, PersistableRecord {
     var releaseYear: Int?
     var filePath: String
     var fileURLBookmark: Data?
-
-    enum Columns {
-        static let databaseId = Column(CodingKeys.databaseId)
-        static let title = Column(CodingKeys.title)
-        static let artistId = Column(CodingKeys.artistId)
-        static let albumId = Column(CodingKeys.albumId)
-        static let genreId = Column(CodingKeys.genreId)
-        static let duration = Column(CodingKeys.duration)
-        static let trackNumber = Column(CodingKeys.trackNumber)
-        static let releaseYear = Column(CodingKeys.releaseYear)
-        static let filePath = Column(CodingKeys.filePath)
-        static let fileURLBookmark = Column(CodingKeys.fileURLBookmark)
-    }
-
-    init(databaseId: Int64? = nil, title: String?, artistId: Int64?, albumId: Int64?, genreId: Int64?, duration: TimeInterval?, trackNumber: Int?, releaseYear: Int?, filePath: String, fileURLBookmark: Data?) {
-        self.databaseId = databaseId
-        self.title = title
-        self.artistId = artistId
-        self.albumId = albumId
-        self.genreId = genreId
-        self.duration = duration
-        self.trackNumber = trackNumber
-        self.releaseYear = releaseYear
-        self.filePath = filePath
-        self.fileURLBookmark = fileURLBookmark
-    }
+    var artworkData: Data?
 
     // Convert from Song struct to DBSong
     init(from song: Song, bookmark: Data?) {
-        self.databaseId = nil
+        self.id = 0 // Will be set by database
         self.title = song.title
         self.duration = song.duration
         self.trackNumber = song.trackNumber
         self.releaseYear = song.releaseYear
         self.filePath = song.url.path
         self.fileURLBookmark = bookmark
+        // Convert artwork to PNG data for storage
+        if let artwork = song.artwork {
+            self.artworkData = artwork.pngData()
+        } else {
+            self.artworkData = nil
+        }
         // artistId, albumId, genreId will be set when inserting with relationships
         self.artistId = nil
         self.albumId = nil
@@ -111,105 +67,132 @@ struct DBSong: Codable, FetchableRecord, PersistableRecord {
 class DatabaseManager {
     static let shared = DatabaseManager()
 
-    let dbQueue: DatabaseQueue
+    let dbPool: DatabasePool
 
     private init() {
         let databaseURL = try! FileManager.default
             .url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true)
             .appendingPathComponent("blitz_player.sqlite")
 
-        dbQueue = try! DatabaseQueue(path: databaseURL.path)
+        Logger.shared.info("Initializing database at: \(databaseURL.path)", category: "Database")
 
-        try! migrator.migrate(dbQueue)
+        dbPool = try! DatabasePool(path: databaseURL.path)
+
+        try! migrate()
     }
 
-    private var migrator: DatabaseMigrator {
-        var migrator = DatabaseMigrator()
-
-        migrator.registerMigration("v1") { db in
-            try db.create(table: "artist") { t in
-                t.autoIncrementedPrimaryKey("databaseId")
-                t.column("name", .text).notNull().unique()
+    private func migrate() throws {
+        Logger.shared.info("Starting database migration", category: "Database")
+        try dbPool.write { db in
+            // Check if we need to recreate tables (migrating from GRDB to SQLiteData)
+            let tableExists = try db.tableExists("artist")
+            if tableExists {
+                Logger.shared.info("Existing database found, checking schema compatibility", category: "Database")
+                // Check if the artist table has the expected structure
+                do {
+                    let _ = try db.execute(sql: "SELECT id, name FROM artist LIMIT 1")
+                } catch {
+                    Logger.shared.warning("Artist table schema incompatible, recreating database", category: "Database")
+                    // Drop existing tables and recreate
+                    try db.execute(sql: "DROP TABLE IF EXISTS song")
+                    try db.execute(sql: "DROP TABLE IF EXISTS album")
+                    try db.execute(sql: "DROP TABLE IF EXISTS artist")
+                    try db.execute(sql: "DROP TABLE IF EXISTS genre")
+                }
             }
 
-            try db.create(table: "album") { t in
-                t.autoIncrementedPrimaryKey("databaseId")
-                t.column("name", .text).notNull()
-                t.column("artistId", .integer).references("artist", onDelete: .setNull)
+            try db.execute(sql: """
+                CREATE TABLE IF NOT EXISTS artist (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE
+                )
+                """)
+            try db.execute(sql: """
+                CREATE TABLE IF NOT EXISTS album (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    artistId INTEGER REFERENCES artist(id) ON DELETE SET NULL
+                )
+                """)
+            try db.execute(sql: """
+                CREATE TABLE IF NOT EXISTS genre (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL UNIQUE
+                )
+                """)
+            try db.execute(sql: """
+                CREATE TABLE IF NOT EXISTS song (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    title TEXT,
+                    artistId INTEGER REFERENCES artist(id) ON DELETE SET NULL,
+                    albumId INTEGER REFERENCES album(id) ON DELETE SET NULL,
+                    genreId INTEGER REFERENCES genre(id) ON DELETE SET NULL,
+                    duration REAL,
+                    trackNumber INTEGER,
+                    releaseYear INTEGER,
+                    filePath TEXT NOT NULL UNIQUE,
+                    fileURLBookmark BLOB,
+                    artworkData BLOB
+                )
+                """)
+            // Add artworkData column to existing tables if it doesn't exist
+            do {
+                try db.execute(sql: "ALTER TABLE song ADD COLUMN artworkData BLOB")
+            } catch {
+                // Column might already exist, ignore error
             }
-
-            try db.create(table: "genre") { t in
-                t.autoIncrementedPrimaryKey("databaseId")
-                t.column("name", .text).notNull().unique()
-            }
-
-            try db.create(table: "song") { t in
-                t.autoIncrementedPrimaryKey("databaseId")
-                t.column("title", .text)
-                t.column("artistId", .integer).references("artist", onDelete: .setNull)
-                t.column("albumId", .integer).references("album", onDelete: .setNull)
-                t.column("genreId", .integer).references("genre", onDelete: .setNull)
-                t.column("duration", .double)
-                t.column("trackNumber", .integer)
-                t.column("releaseYear", .integer)
-                t.column("filePath", .text).notNull().unique()
-                t.column("fileURLBookmark", .blob)
-            }
-
             // Create indexes for better query performance
-            try db.create(index: "song_artist_idx", on: "song", columns: ["artistId"])
-            try db.create(index: "song_album_idx", on: "song", columns: ["albumId"])
-            try db.create(index: "song_genre_idx", on: "song", columns: ["genreId"])
-            try db.create(index: "song_title_idx", on: "song", columns: ["title"])
+            try db.execute(sql: "CREATE INDEX IF NOT EXISTS song_artist_idx ON song(artistId)")
+            try db.execute(sql: "CREATE INDEX IF NOT EXISTS song_album_idx ON song(albumId)")
+            try db.execute(sql: "CREATE INDEX IF NOT EXISTS song_genre_idx ON song(genreId)")
+            try db.execute(sql: "CREATE INDEX IF NOT EXISTS song_title_idx ON song(title)")
         }
-
-        return migrator
+        Logger.shared.info("Database migration completed successfully", category: "Database")
+    }
+    // Resolve bookmark off the main actor to avoid UI blocking
+    private static func resolveBookmarkAsync(_ bookmarkData: Data) async throws -> URL {
+        try await Task.detached(priority: .userInitiated) { () throws -> URL in
+            var isStale = false
+            let url = try URL(
+                resolvingBookmarkData: bookmarkData,
+                options: [.withoutUI, .withoutMounting],
+                relativeTo: nil,
+                bookmarkDataIsStale: &isStale
+            )
+            if isStale {
+                print("[WARNING] Bookmark is stale, folder may have moved")
+            }
+            return url
+        }.value
     }
 
     // MARK: - CRUD Operations
 
     func insertSong(_ song: Song, bookmark: Data?) throws {
-        try dbQueue.write { db in
+        Logger.shared.info("Inserting song: \(song.title ?? "Unknown") by \(song.artist ?? "Unknown Artist")", category: "Database")
+        try dbPool.write { db in
             // Insert or find artist
             var artistId: Int64?
             if let artistName = song.artist {
-                let existingArtist = try Artist.filter(Artist.Columns.name == artistName).fetchOne(db)
-                if let existing = existingArtist {
-                    artistId = existing.databaseId
-                } else {
-                    let newArtist = Artist(name: artistName)
-                    if let inserted = try newArtist.insertAndFetch(db, onConflict: .ignore) {
-                        artistId = inserted.databaseId
-                    }
-                }
+                try db.execute(sql: "INSERT OR IGNORE INTO artist (name) VALUES (?)", arguments: [artistName])
+                artistId = try Int64.fetchOne(db, sql: "SELECT id FROM artist WHERE name = ?", arguments: [artistName])
+                Logger.shared.debug("Artist '\(artistName)' ID: \(artistId ?? -1)", category: "Database")
             }
 
             // Insert or find album
             var albumId: Int64?
             if let albumName = song.album {
-                let existingAlbum = try Album.filter(Album.Columns.name == albumName && Album.Columns.artistId == artistId).fetchOne(db)
-                if let existing = existingAlbum {
-                    albumId = existing.databaseId
-                } else {
-                    let newAlbum = Album(name: albumName, artistId: artistId)
-                    if let inserted = try newAlbum.insertAndFetch(db, onConflict: .ignore) {
-                        albumId = inserted.databaseId
-                    }
-                }
+                try db.execute(sql: "INSERT OR IGNORE INTO album (name, artistId) VALUES (?, ?)", arguments: [albumName, artistId])
+                albumId = try Int64.fetchOne(db, sql: "SELECT id FROM album WHERE name = ? AND (artistId IS ? OR (artistId IS NULL AND ? IS NULL))", arguments: [albumName, artistId, artistId])
+                Logger.shared.debug("Album '\(albumName)' ID: \(albumId ?? -1)", category: "Database")
             }
 
             // Insert or find genre
             var genreId: Int64?
             if let genreName = song.genre {
-                let existingGenre = try Genre.filter(Genre.Columns.name == genreName).fetchOne(db)
-                if let existing = existingGenre {
-                    genreId = existing.databaseId
-                } else {
-                    let newGenre = Genre(name: genreName)
-                    if let inserted = try newGenre.insertAndFetch(db, onConflict: .ignore) {
-                        genreId = inserted.databaseId
-                    }
-                }
+                try db.execute(sql: "INSERT OR IGNORE INTO genre (name) VALUES (?)", arguments: [genreName])
+                genreId = try Int64.fetchOne(db, sql: "SELECT id FROM genre WHERE name = ?", arguments: [genreName])
+                Logger.shared.debug("Genre '\(genreName)' ID: \(genreId ?? -1)", category: "Database")
             }
 
             // Insert song
@@ -217,96 +200,89 @@ class DatabaseManager {
             dbSong.artistId = artistId
             dbSong.albumId = albumId
             dbSong.genreId = genreId
-            try dbSong.insert(db)
+            try db.execute(sql: """
+                INSERT INTO song (title, artistId, albumId, genreId, duration, trackNumber, releaseYear, filePath, fileURLBookmark, artworkData)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, arguments: [
+                    dbSong.title, dbSong.artistId, dbSong.albumId, dbSong.genreId,
+                    dbSong.duration, dbSong.trackNumber, dbSong.releaseYear,
+                    dbSong.filePath, dbSong.fileURLBookmark, dbSong.artworkData
+                ])
         }
+        Logger.shared.info("Successfully inserted song: \(song.title ?? "Unknown")", category: "Database")
     }
 
     func fetchAllSongs() throws -> [DBSong] {
-        try dbQueue.read { db in
-            try DBSong.fetchAll(db)
+        try dbPool.read { db in
+            try #sql("SELECT * FROM song", as: DBSong.self).fetchAll(db)
         }
     }
 
     func fetchSongsWithMetadata() throws -> [Song] {
-        try dbQueue.read { db in
-            let dbSongs = try DBSong.fetchAll(db)
+        let songData = try dbPool.read { db in
+            try #sql("""
+                SELECT song.*, artist.name as artistName, album.name as albumName, genre.name as genreName
+                FROM song
+                LEFT JOIN artist ON song.artistId = artist.id
+                LEFT JOIN album ON song.albumId = album.id
+                LEFT JOIN genre ON song.genreId = genre.id
+                """, as: (DBSong, String?, String?, String?).self).fetchAll(db)
+        }
 
-            let artistIds = Set(dbSongs.compactMap { $0.artistId })
-            let artists = artistIds.isEmpty ? [] : try Artist.filter(keys: artistIds).fetchAll(db)
-            let artistDict = Dictionary(uniqueKeysWithValues: artists.compactMap { artist in
-                artist.databaseId.map { ($0, artist.name) }
-            })
-
-            let albumIds = Set(dbSongs.compactMap { $0.albumId })
-            let albums = albumIds.isEmpty ? [] : try Album.filter(keys: albumIds).fetchAll(db)
-            let albumDict = Dictionary(uniqueKeysWithValues: albums.compactMap { album in
-                album.databaseId.map { ($0, album.name) }
-            })
-
-            let genreIds = Set(dbSongs.compactMap { $0.genreId })
-            let genres = genreIds.isEmpty ? [] : try Genre.filter(keys: genreIds).fetchAll(db)
-            let genreDict = Dictionary(uniqueKeysWithValues: genres.compactMap { genre in
-                genre.databaseId.map { ($0, genre.name) }
-            })
-
-            return dbSongs.map { dbSong in
-                var song = Song(url: URL(fileURLWithPath: dbSong.filePath))
-                song.title = dbSong.title
-                song.artist = dbSong.artistId.flatMap { artistDict[$0] }
-                song.album = dbSong.albumId.flatMap { albumDict[$0] }
-                song.genre = dbSong.genreId.flatMap { genreDict[$0] }
-                song.duration = dbSong.duration
-                song.trackNumber = dbSong.trackNumber
-                song.releaseYear = dbSong.releaseYear
-                return song
+        return songData.map { (dbSong, artistName, albumName, genreName) in
+            let url = URL(fileURLWithPath: dbSong.filePath)
+            var song = Song(url: url)
+            song.title = dbSong.title
+            song.artist = artistName
+            song.album = albumName
+            song.genre = genreName
+            song.duration = dbSong.duration
+            song.trackNumber = dbSong.trackNumber
+            song.releaseYear = dbSong.releaseYear
+            // Restore artwork from stored data
+            if let artworkData = dbSong.artworkData {
+                song.artwork = UIImage(data: artworkData)
             }
+            return song
         }
     }
 
     func searchSongs(query: String) throws -> [Song] {
-        try dbQueue.read { db in
-            let pattern = "%\(query)%"
-            let dbSongs = try DBSong.filter(DBSong.Columns.title.like(pattern) ||
-                                           DBSong.Columns.filePath.like(pattern)).fetchAll(db)
+        let pattern = "%\(query)%"
+        let songData = try dbPool.read { db in
+            try #sql("""
+                SELECT song.*, artist.name as artistName, album.name as albumName, genre.name as genreName
+                FROM song
+                LEFT JOIN artist ON song.artistId = artist.id
+                LEFT JOIN album ON song.albumId = album.id
+                LEFT JOIN genre ON song.genreId = genre.id
+                WHERE song.title LIKE \(raw: pattern) OR song.filePath LIKE \(raw: pattern)
+                """, as: (DBSong, String?, String?, String?).self).fetchAll(db)
+        }
 
-            let artistIds = Set(dbSongs.compactMap { $0.artistId })
-            let artists = artistIds.isEmpty ? [] : try Artist.filter(keys: artistIds).fetchAll(db)
-            let artistDict = Dictionary(uniqueKeysWithValues: artists.compactMap { artist in
-                artist.databaseId.map { ($0, artist.name) }
-            })
-
-            let albumIds = Set(dbSongs.compactMap { $0.albumId })
-            let albums = albumIds.isEmpty ? [] : try Album.filter(keys: albumIds).fetchAll(db)
-            let albumDict = Dictionary(uniqueKeysWithValues: albums.compactMap { album in
-                album.databaseId.map { ($0, album.name) }
-            })
-
-            let genreIds = Set(dbSongs.compactMap { $0.genreId })
-            let genres = genreIds.isEmpty ? [] : try Genre.filter(keys: genreIds).fetchAll(db)
-            let genreDict = Dictionary(uniqueKeysWithValues: genres.compactMap { genre in
-                genre.databaseId.map { ($0, genre.name) }
-            })
-
-            return dbSongs.map { dbSong in
-                var song = Song(url: URL(fileURLWithPath: dbSong.filePath))
-                song.title = dbSong.title
-                song.artist = dbSong.artistId.flatMap { artistDict[$0] }
-                song.album = dbSong.albumId.flatMap { albumDict[$0] }
-                song.genre = dbSong.genreId.flatMap { genreDict[$0] }
-                song.duration = dbSong.duration
-                song.trackNumber = dbSong.trackNumber
-                song.releaseYear = dbSong.releaseYear
-                return song
+        return songData.map { (dbSong, artistName, albumName, genreName) in
+            var song = Song(url: URL(fileURLWithPath: dbSong.filePath))
+            song.title = dbSong.title
+            song.artist = artistName
+            song.album = albumName
+            song.genre = genreName
+            song.duration = dbSong.duration
+            song.trackNumber = dbSong.trackNumber
+            song.releaseYear = dbSong.releaseYear
+            // Restore artwork from stored data
+            if let artworkData = dbSong.artworkData {
+                song.artwork = UIImage(data: artworkData)
             }
+            return song
         }
     }
 
     func clearAllSongs() throws {
-        try dbQueue.write { db in
-            try DBSong.deleteAll(db)
-            try Album.deleteAll(db)
-            try Artist.deleteAll(db)
-            try Genre.deleteAll(db)
+        try dbPool.write { db in
+            try #sql("DELETE FROM song").execute(db)
+            try #sql("DELETE FROM album").execute(db)
+            try #sql("DELETE FROM artist").execute(db)
+            try #sql("DELETE FROM genre").execute(db)
         }
     }
 }

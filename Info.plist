@@ -14,5 +14,7 @@
 	<true/>
 	<key>CFBundleDisplayName</key>
 	<string>Blitz Player</string>
+	<key>UIBackgroundModes</key>
+	<string>audio</string>
 </dict>
 </plist>

@@ -4,10 +4,7 @@ struct ArtistsView: View {
   let songs: [Song]
   @ObservedObject var audioPlayer: AudioPlayer
   @Binding var selectedSong: Song?
-
-  var grouped: [String: [Song]] {
-    Dictionary(grouping: songs, by: { $0.artist ?? "Unknown Artist" })
-  }
+  @State private var grouped: [String: [Song]] = [:]
 
   var body: some View {
     List {
@@ -20,6 +17,14 @@ struct ArtistsView: View {
         ) {
           Text(artist)
         }
+      }
+    }
+    .onChange(of: songs) {
+      grouped = Dictionary(grouping: songs, by: { $0.artist ?? "Unknown Artist" })
+    }
+    .onAppear {
+      if grouped.isEmpty {
+        grouped = Dictionary(grouping: songs, by: { $0.artist ?? "Unknown Artist" })
       }
     }
   }

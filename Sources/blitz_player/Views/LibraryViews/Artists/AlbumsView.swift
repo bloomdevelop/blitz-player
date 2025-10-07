@@ -5,10 +5,7 @@ struct AlbumsView: View {
   @ObservedObject var audioPlayer: AudioPlayer
   @Binding var selectedSong: Song?
   @Namespace private var namespace
-
-  var grouped: [String: [Song]] {
-    Dictionary(grouping: songs, by: { $0.album ?? "Unknown Album" })
-  }
+  @State private var grouped: [String: [Song]] = [:]
 
   var body: some View {
     let albumNames: [String] = grouped.keys.sorted()
@@ -32,7 +29,7 @@ struct AlbumsView: View {
           ) {
             VStack(alignment: .leading) {
               ArtworkImage(artwork, size: 150)
-                .matchedTransitionSource(id: "album", in: namespace)
+                .matchedTransitionSource(id: album, in: namespace)
               Text(album)
                 .font(.body)
                 .foregroundColor(.primary)
@@ -45,6 +42,14 @@ struct AlbumsView: View {
         }
       }
       .padding()
+    }
+    .onChange(of: songs) {
+      grouped = Dictionary(grouping: songs, by: { $0.album ?? "Unknown Album" })
+    }
+    .onAppear {
+      if grouped.isEmpty {
+        grouped = Dictionary(grouping: songs, by: { $0.album ?? "Unknown Album" })
+      }
     }
   }
 }

@@ -2,6 +2,7 @@ import AVFoundation
 import Foundation
 import UIKit
 import GRDB
+import os.log
 
 // MARK: - Structs
 struct SongMetadata {
@@ -121,22 +122,70 @@ struct Song: Identifiable, Codable {
 @MainActor
 class SongManager: ObservableObject {
   @Published var songs: [Song] = []
+  @Published var isIndexing: Bool = false
+  @Published var indexingProgress: Double = 0.0
+  @Published var indexingStatus: String = ""
   private var currentSecurityScopedURL: URL?
 
+  // Artwork cache for performance
+  private var artworkCache: [UUID: UIImage] = [:]
+
   init() {
+    Logger.shared.info("Initializing SongManager", category: "SongManager")
+  // Get cached artwork or load it
+  func getArtwork(for song: Song) -> UIImage? {
+    if let cached = artworkCache[song.id] {
+      return cached
+    }
+    if let artwork = song.artwork {
+      artworkCache[song.id] = artwork
+      return artwork
+    }
+    return nil
+  }
+
+  // Load and cache artwork asynchronously
+  func loadAndCacheArtwork(for song: Song) async {
+    if artworkCache[song.id] != nil { return }
+
+    if let artwork = await Self.loadArtwork(from: song.url) {
+      await MainActor.run {
+        artworkCache[song.id] = artwork
+        // Update the song in the array if it doesn't have artwork
+        if let index = songs.firstIndex(where: { $0.id == song.id }),
+           songs[index].artwork == nil {
+          songs[index].artwork = artwork
+        }
+      }
+    }
+  }
     // Try to load from database first
     Task {
       await loadSongsFromDatabase()
       if songs.isEmpty {
-        print("[DEBUG] Database empty, loading from saved bookmark")
-        // If database is empty, try to load from saved bookmark, then fall back to documents directory
-        loadSongsFromSavedBookmark()
-        if songs.isEmpty {
-          print("[DEBUG] No saved bookmark, loading from documents")
-          loadSongs()
-        }
+        Logger.shared.info("Database empty, waiting for user to pick folder", category: "SongManager")
+        // If database is empty, wait for user to pick a folder via the UI
       } else {
-        print("[DEBUG] Loaded \(songs.count) songs from database")
+        Logger.shared.info("Loaded \(songs.count) songs from database", category: "SongManager")
+        // Restore security-scoped access for the saved folder
+        restoreSecurityScopedAccess()
+      }
+    }
+  }
+
+  private func restoreSecurityScopedAccess() {
+    Logger.shared.info("Restoring security-scoped access", category: "SongManager")
+    guard let bookmarkData = UserDefaults.standard.data(forKey: "SavedMusicFolderBookmark") else {
+      Logger.shared.info("No saved bookmark found", category: "SongManager")
+      return
+    }
+    Task {
+      do {
+        let folderURL = try await Self.resolveBookmarkAsync(bookmarkData)
+        setSecurityScopedFolder(folderURL)
+        Logger.shared.info("Restored security-scoped access", category: "SongManager")
+      } catch {
+        Logger.shared.error("Failed to restore security-scoped access: \(error)", category: "SongManager")
       }
     }
   }
@@ -180,7 +229,12 @@ class SongManager: ObservableObject {
     // Supported audio file extensions
     let exts: Set<String> = ["mp3", "flac", "wav", "m4a"]
 
-    Task.detached(priority: .userInitiated) { [weak self] in
+    // Start indexing
+    isIndexing = true
+    indexingProgress = 0.0
+    indexingStatus = "Scanning files..."
+
+    Task.detached(priority: .userInitiated) {
       // Recursively enumerate folder contents
       let enumerator = FileManager.default.enumerator(
         at: folder,
@@ -206,16 +260,22 @@ class SongManager: ObservableObject {
       }
 
       if Task.isCancelled {
-        await MainActor.run { [weak self] in
-          self?.songs = []
+        await MainActor.run {
+          self.songs = []
+          self.isIndexing = false
         }
         return
+      }
+
+      await MainActor.run {
+        self.indexingProgress = 0.1
+        self.indexingStatus = "Loading metadata for \(audioFiles.count) songs..."
       }
 
       // Create songs with metadata concurrently, limited to 4 concurrent tasks per chunk
       let chunkSize = 4
       var indexedSongs: [(Int, Song)] = []
-      for start in stride(from: 0, to: audioFiles.count, by: chunkSize) {
+      for (chunkIndex, start) in stride(from: 0, to: audioFiles.count, by: chunkSize).enumerated() {
         let end = min(start + chunkSize, audioFiles.count)
         let chunk = Array(audioFiles[start..<end])
         let chunkResults = await withTaskGroup(of: (Int, Song).self) { group in
@@ -234,14 +294,23 @@ class SongManager: ObservableObject {
           return results
         }
         indexedSongs.append(contentsOf: chunkResults)
+
+        // Update progress
+        let progress = 0.1 + (Double(chunkIndex + 1) / Double((audioFiles.count + chunkSize - 1) / chunkSize)) * 0.8
+        await MainActor.run {
+          self.indexingProgress = progress
+          self.indexingStatus = "Loaded metadata for \(indexedSongs.count) of \(audioFiles.count) songs..."
+        }
       }
       let loadedSongs = indexedSongs.sorted { $0.0 < $1.0 }.map { $0.1 }
 
       // Publish song list on main actor
-      await MainActor.run { [weak self] in
-        self?.songs = loadedSongs
+      await MainActor.run {
+        self.songs = loadedSongs
+        self.indexingProgress = 0.9
+        self.indexingStatus = "Indexing songs in database..."
         // Index songs in database
-        self?.indexSongsInDatabase(loadedSongs)
+        Task { await self.indexSongsInDatabase(loadedSongs) }
       }
     }
   }
@@ -408,19 +477,21 @@ class SongManager: ObservableObject {
   }
 
   func loadSongsFromDatabase() async {
+    Logger.shared.info("Loading songs from database", category: "SongManager")
     do {
       let songs = try DatabaseManager.shared.fetchSongsWithMetadata()
       self.songs = songs
-      print("[INFO] Loaded \(songs.count) songs from database")
+      Logger.shared.info("Loaded \(songs.count) songs from database", category: "SongManager")
     } catch {
-      print("[ERROR] Failed to load songs from database: \(error)")
+      Logger.shared.error("Failed to load songs from database: \(error)", category: "SongManager")
     }
   }
 
   func loadSongsFromSavedBookmark() {
+    Logger.shared.info("Attempting to load songs from saved bookmark", category: "SongManager")
     guard let bookmarkData = UserDefaults.standard.data(forKey: "SavedMusicFolderBookmark")
     else {
-      print("[INFO] No saved bookmark found")
+      Logger.shared.info("No saved bookmark found", category: "SongManager")
       return
     }
 
@@ -430,9 +501,9 @@ class SongManager: ObservableObject {
         let folderURL = try await Self.resolveBookmarkAsync(bookmarkData)
         self.setSecurityScopedFolder(folderURL)
         self.loadSongs(from: folderURL)
-        print("[INFO] Loaded songs from saved bookmark")
+        Logger.shared.info("Loaded songs from saved bookmark", category: "SongManager")
       } catch {
-        print("[ERROR] Failed to resolve bookmark: \(error)")
+        Logger.shared.error("Failed to resolve bookmark: \(error)", category: "SongManager")
         self.setSecurityScopedFolder(nil)
       }
     }
@@ -443,7 +514,25 @@ class SongManager: ObservableObject {
     loadSongs(from: docs)
   }
 
+  func resetDatabase() {
+    Logger.shared.info("Resetting database", category: "SongManager")
+    do {
+      // Clear all songs from database
+      try DatabaseManager.shared.clearAllSongs()
+      // Clear songs array
+      songs = []
+      // Remove saved bookmark
+      UserDefaults.standard.removeObject(forKey: "SavedMusicFolderBookmark")
+      // Stop security-scoped access
+      setSecurityScopedFolder(nil)
+      Logger.shared.info("Database reset successfully", category: "SongManager")
+    } catch {
+      Logger.shared.error("Failed to reset database: \(error)", category: "SongManager")
+    }
+  }
+
   func pickFolder(_ folder: URL) {
+    Logger.shared.info("Picking folder: \(folder.path)", category: "SongManager")
     // Set up security-scoped access for the newly picked folder
     setSecurityScopedFolder(folder)
 
@@ -455,28 +544,51 @@ class SongManager: ObservableObject {
       let bookmark = try folder.bookmarkData(
         includingResourceValuesForKeys: nil, relativeTo: nil)
       UserDefaults.standard.set(bookmark, forKey: "SavedMusicFolderBookmark")
-      print("[INFO] Saved folder bookmark")
+      Logger.shared.info("Saved folder bookmark", category: "SongManager")
     } catch {
-      print("[ERROR] Failed to create bookmark: \(error)")
+      Logger.shared.error("Failed to create bookmark: \(error)", category: "SongManager")
     }
   }
 
-  private func indexSongsInDatabase(_ songs: [Song]) {
-    Task {
-      do {
-        try DatabaseManager.shared.clearAllSongs()
+  private func indexSongsInDatabase(_ songs: [Song]) async {
+    Logger.shared.info("Indexing \(songs.count) songs in database", category: "SongManager")
+    do {
+      try DatabaseManager.shared.clearAllSongs()
 
-        for song in songs {
-          let bookmark = try? song.url.bookmarkData(
-            includingResourceValuesForKeys: nil,
-            relativeTo: nil
-          )
-          try DatabaseManager.shared.insertSong(song, bookmark: bookmark)
+      for (index, song) in songs.enumerated() {
+        let bookmark = try? song.url.bookmarkData(
+          includingResourceValuesForKeys: nil,
+          relativeTo: nil
+        )
+        try DatabaseManager.shared.insertSong(song, bookmark: bookmark)
+
+        // Update progress
+        let progress = 0.9 + (Double(index + 1) / Double(songs.count)) * 0.1
+        await MainActor.run {
+          self.indexingProgress = progress
+          self.indexingStatus = "Indexed \(index + 1) of \(songs.count) songs..."
         }
-        print("[INFO] Indexed \(songs.count) songs in database")
-      } catch {
-        print("[ERROR] Failed to index songs in database: \(error)")
+      }
+      Logger.shared.info("Indexed \(songs.count) songs in database", category: "SongManager")
+
+      // Complete indexing
+      await MainActor.run {
+        self.isIndexing = false
+        self.indexingProgress = 1.0
+        self.indexingStatus = "Indexing complete"
+      }
+    } catch {
+      Logger.shared.error("Failed to index songs in database: \(error)", category: "SongManager")
+      await MainActor.run {
+        self.isIndexing = false
+        self.indexingStatus = "Indexing failed"
       }
     }
+  }
+}
+// MARK: - Song Equatable
+extension Song: Equatable {
+  static func == (lhs: Song, rhs: Song) -> Bool {
+    lhs.id == rhs.id
   }
 }

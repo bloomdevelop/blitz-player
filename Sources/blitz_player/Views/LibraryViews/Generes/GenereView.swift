@@ -70,7 +70,7 @@ struct GenereView: View {
       .contentShape(Rectangle())
       .onTapGesture {
         selectedSong = song
-        audioPlayer.startPlayback(url: song.url)
+        audioPlayer.startPlayback(song: song)
       }
     }
     .navigationTitle(genereName)

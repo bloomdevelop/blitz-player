@@ -17,7 +17,10 @@ let package = Package(
     ],
     dependencies: [
         .package(url: "https://github.com/AudioKit/AudioKit", from: "5.6.4"),
-        .package(url: "https://github.com/groue/GRDB.swift", from: "6.0.0"),
+        .package(url: "https://github.com/groue/GRDB.swift.git", from: "7.8.0"),
+        .package(url: "https://github.com/pointfreeco/swift-case-paths", from: "1.0.0"),
+        .package(url: "https://github.com/pointfreeco/swift-tagged", from: "0.10.0"),
+        .package(url: "https://github.com/pointfreeco/sqlite-data", from: "1.1.0")
     ],
     targets: [
         .target(
@@ -25,6 +28,7 @@ let package = Package(
             dependencies: [
                 "AudioKit",
                 .product(name: "GRDB", package: "grdb.swift"),
+                .product(name: "SQLiteData", package: "sqlite-data")
             ],
         )
     ]

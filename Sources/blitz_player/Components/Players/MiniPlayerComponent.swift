@@ -2,10 +2,12 @@ import SwiftUI
 
 struct MiniPlayerComponent: View {
 
-  @ObservedObject var audioPlayer: AudioPlayer
-  var song: Song?
-  var navNamespace: Namespace.ID
-  @State private var artworkURL: URL? = nil
+   @ObservedObject var audioPlayer: AudioPlayer
+   @ObservedObject var songManager: SongManager
+   @Binding var selectedSong: Song?
+   var song: Song?
+   var navNamespace: Namespace.ID
+   @State private var artworkURL: URL? = nil
 
   var body: some View {
     if let song = song {
@@ -58,6 +60,16 @@ struct MiniPlayerComponent: View {
 
         Spacer()
 
+        IconButton(
+          icon: "backward.fill",
+          action: {
+            audioPlayer.playPrevious()
+          },
+          size: 40,
+          color: .primary
+        )
+        .disabled(songManager.songs.count <= 1)
+
         ReplacableIconButton(
           prevIcon: "play.fill",
           nextIcon: "pause.fill",
@@ -72,11 +84,12 @@ struct MiniPlayerComponent: View {
         IconButton(
           icon: "forward.fill",
           action: {
-            // TODO)) Next/prev track
+            audioPlayer.playNext()
           },
           size: 40,
           color: .primary
         )
+        .disabled(songManager.songs.count <= 1)
       }
       .padding(10)
       .background(.bar)

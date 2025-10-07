@@ -26,6 +26,7 @@ struct AlbumSongsListView: View {
   var body: some View {
     VStack {
         ArtworkImage(artwork: albumArtwork, size: albumArtworkSize)
+          .matchedGeometryEffect(id: albumName, in: namespace)
 
       Text(albumName)
         .font(.title2)
@@ -41,19 +42,19 @@ struct AlbumSongsListView: View {
         }
         .swipeActions(edge: .leading) {
           Button(action: {
-            audioPlayer.startPlayback(url: song.url)
+            audioPlayer.startPlayback(song: song)
           }) {
             Label("Play", systemImage: "play.fill")
           }.tint(.blue)
         }
         .onTapGesture {
           selectedSong = song
-          audioPlayer.startPlayback(url: song.url)
+          audioPlayer.startPlayback(song: song)
         }
       }
       .listStyle(.plain)
     }
     .scrollContentBackground(.hidden)
-    .navigationTransition(.zoom(sourceID: "album", in: namespace))
+    .navigationTransition(.zoom(sourceID: albumName, in: namespace))
   }
 }
