@@ -559,7 +559,8 @@ class SongManager: ObservableObject {
   private func indexSongsInDatabase(_ songs: [Song]) async {
     Logger.shared.info("Indexing \(songs.count) songs in database", category: "SongManager")
     do {
-      try await DatabaseManager.shared.clearAllSongs()
+      // Get existing file paths before updating
+      let existingFilePaths = try await DatabaseManager.shared.fetchAllSongs().map { $0.filePath }
 
       for (index, song) in songs.enumerated() {
         let bookmark = try? song.url.bookmarkData(
@@ -575,7 +576,15 @@ class SongManager: ObservableObject {
           self.indexingStatus = "Indexed \(index + 1) of \(songs.count) songs..."
         }
       }
-      Logger.shared.info("Indexed \(songs.count) songs in database", category: "SongManager")
+
+      // Delete songs that are no longer present
+      let currentFilePaths = Set(songs.map { $0.url.path })
+      let toDelete = existingFilePaths.filter { !currentFilePaths.contains($0) }
+      for filePath in toDelete {
+        try await DatabaseManager.shared.deleteSong(byFilePath: filePath)
+      }
+
+      Logger.shared.info("Indexed \(songs.count) songs in database, deleted \(toDelete.count) removed songs", category: "SongManager")
 
       // Complete indexing
       await MainActor.run {

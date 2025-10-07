@@ -154,7 +154,7 @@ class DatabaseManager {
     // MARK: - CRUD Operations
 
     nonisolated func insertSong(_ song: Song, bookmark: Data?) async throws {
-        Task { await Logger.shared.info("Inserting song: \(song.title ?? "Unknown") by \(song.artist ?? "Unknown Artist")", category: "Database") }
+        Task { await Logger.shared.info("Inserting/updating song: \(song.title ?? "Unknown") by \(song.artist ?? "Unknown Artist")", category: "Database") }
         try await Task.detached(priority: .userInitiated) {
             try self.dbQueue.write { db in
                 // Insert or find artist
@@ -181,13 +181,22 @@ class DatabaseManager {
                     Task { await Logger.shared.debug("Genre '\(genreName)' ID: \(genreId ?? -1)", category: "Database") }
                 }
 
-                // Insert song
+                // Prepare song data
                 var dbSong = DBSong(from: song, bookmark: bookmark)
                 dbSong.artistId = artistId
                 dbSong.albumId = albumId
                 dbSong.genreId = genreId
+
+                // Preserve existing artwork if new one is not available
+                if dbSong.artworkData == nil {
+                    if let existingArtworkData = try? Data.fetchOne(db, sql: "SELECT artworkData FROM song WHERE filePath = ?", arguments: [dbSong.filePath]) {
+                        dbSong.artworkData = existingArtworkData
+                    }
+                }
+
+                // Insert or replace song
                 try db.execute(sql: """
-                    INSERT INTO song (title, artistId, albumId, genreId, duration, trackNumber, releaseYear, filePath, fileURLBookmark, artworkData)
+                    INSERT OR REPLACE INTO song (title, artistId, albumId, genreId, duration, trackNumber, releaseYear, filePath, fileURLBookmark, artworkData)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """, arguments: [
                         dbSong.title, dbSong.artistId, dbSong.albumId, dbSong.genreId,
@@ -196,7 +205,7 @@ class DatabaseManager {
                     ])
             }
         }.value
-        Task { await Logger.shared.info("Successfully inserted song: \(song.title ?? "Unknown")", category: "Database") }
+        Task { await Logger.shared.info("Successfully inserted/updated song: \(song.title ?? "Unknown")", category: "Database") }
     }
 
     nonisolated func fetchAllSongs() async throws -> [DBSong] {
@@ -268,6 +277,14 @@ class DatabaseManager {
             }
             return song
         }
+    }
+
+    nonisolated func deleteSong(byFilePath filePath: String) async throws {
+        try await Task.detached {
+            try self.dbQueue.write { db in
+                try db.execute(sql: "DELETE FROM song WHERE filePath = ?", arguments: [filePath])
+            }
+        }.value
     }
 
     nonisolated func clearAllSongs() async throws {

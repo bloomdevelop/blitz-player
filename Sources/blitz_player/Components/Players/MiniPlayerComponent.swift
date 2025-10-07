@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct MiniPlayerComponent: View {
 
@@ -8,6 +9,9 @@ struct MiniPlayerComponent: View {
    var song: Song?
    var navNamespace: Namespace.ID
    @State private var artworkURL: URL? = nil
+   @State private var previousButtonScale: CGFloat = 1.0
+   @State private var playButtonScale: CGFloat = 1.0
+   @State private var nextButtonScale: CGFloat = 1.0
 
   var body: some View {
     if let song = song {
@@ -63,33 +67,66 @@ struct MiniPlayerComponent: View {
         IconButton(
           icon: "backward.fill",
           action: {
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+            withAnimation(.easeInOut(duration: 0.1)) {
+              previousButtonScale = 0.9
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+              withAnimation(.easeInOut(duration: 0.1)) {
+                previousButtonScale = 1.0
+              }
+            }
             audioPlayer.playPrevious()
           },
           size: 40,
           color: .primary
         )
         .disabled(songManager.songs.count <= 1)
+        .scaleEffect(previousButtonScale)
 
         ReplacableIconButton(
           prevIcon: "play.fill",
           nextIcon: "pause.fill",
           isSwitched: $audioPlayer.isPlaying,
           action: {
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+            withAnimation(.easeInOut(duration: 0.1)) {
+              playButtonScale = 0.9
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+              withAnimation(.easeInOut(duration: 0.1)) {
+                playButtonScale = 1.0
+              }
+            }
             audioPlayer.togglePlayback()
           },
           size: 40,
           color: .primary
         )
+        .scaleEffect(playButtonScale)
 
         IconButton(
           icon: "forward.fill",
           action: {
+            let generator = UIImpactFeedbackGenerator(style: .light)
+            generator.impactOccurred()
+            withAnimation(.easeInOut(duration: 0.1)) {
+              nextButtonScale = 0.9
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+              withAnimation(.easeInOut(duration: 0.1)) {
+                nextButtonScale = 1.0
+              }
+            }
             audioPlayer.playNext()
           },
           size: 40,
           color: .primary
         )
         .disabled(songManager.songs.count <= 1)
+        .scaleEffect(nextButtonScale)
       }
       .padding(10)
       .background(.bar)

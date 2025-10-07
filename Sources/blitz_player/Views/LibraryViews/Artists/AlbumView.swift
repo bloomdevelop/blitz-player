@@ -24,7 +24,7 @@ struct AlbumSongsListView: View {
 
   var body: some View {
     VStack {
-        ArtworkImage(artwork: albumArtwork, size: albumArtworkSize)
+      ArtworkImage(artwork: albumArtwork, size: albumArtworkSize)
 
       Text(albumName)
         .font(.title2)
@@ -40,6 +40,7 @@ struct AlbumSongsListView: View {
         }
         .swipeActions(edge: .leading) {
           Button(action: {
+            selectedSong = song
             audioPlayer.startPlayback(song: song)
           }) {
             Label("Play", systemImage: "play.fill")

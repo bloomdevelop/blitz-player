@@ -45,3 +45,14 @@ A iOS 18+ Music Player built with Swift and SwiftUI
     - [ ] Smart playlist
 - [X] Song scanning/indexing
 - [X] Song Metadata
+
+---
+
+## Changelogs
+
+### 10-07-2025
+- Fixed app crash when attempting to load from database
+- Fixed missing cover art after indexing
+- Added small animation and haptic on MiniPlayer when doing some actions
+- Fixed some part of the FullPlayer UI being unreadable when there's no cover art
+- Fixed Quick Play action not working properly

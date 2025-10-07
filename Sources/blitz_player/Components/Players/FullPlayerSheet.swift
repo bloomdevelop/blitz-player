@@ -26,6 +26,8 @@ struct FullPlayerSheet: View {
 
       VStack(spacing: 0) {
         if let song = song {
+          let hasArtwork = song.artwork != nil
+          let textColor: Color = hasArtwork ? .white : .primary
           Spacer()
 
           // MARK: Album Art
@@ -48,14 +50,14 @@ struct FullPlayerSheet: View {
             Text(song.name)
               .font(.title2)
               .fontWeight(.semibold)
-              .foregroundColor(.white)
+              .foregroundColor(textColor)
               .lineLimit(2)
               .multilineTextAlignment(.center)
               .padding(.horizontal, 32)
 
             Text(song.artist ?? "Unknown Artist")
               .font(.body)
-              .foregroundColor(.white.opacity(0.7))
+              .foregroundColor(textColor.opacity(0.7))
           }
           .padding(.top, 24)
 
@@ -88,7 +90,7 @@ struct FullPlayerSheet: View {
             }) {
               Image(systemName: "backward.fill")
                 .font(.title)
-                .foregroundColor(.white.opacity(0.9))
+                .foregroundColor(textColor.opacity(0.9))
             }
             .disabled(songManager.songs.count <= 1)
             .opacity(songManager.songs.count <= 1 ? 0.5 : 1)
@@ -97,14 +99,14 @@ struct FullPlayerSheet: View {
               prevIcon: "play.fill", nextIcon: "pause.fill", isSwitched: $audioPlayer.isPlaying,
               action: {
                 audioPlayer.togglePlayback()
-              }, size: 72, color: .white.opacity(0.9))
+              }, size: 72, color: textColor.opacity(0.9))
 
             Button(action: {
               audioPlayer.playNext()
             }) {
               Image(systemName: "forward.fill")
                 .font(.title)
-                .foregroundColor(.white.opacity(0.9))
+                .foregroundColor(textColor.opacity(0.9))
             }
             .disabled(songManager.songs.count <= 1)
             .opacity(songManager.songs.count <= 1 ? 0.5 : 1)
@@ -122,12 +124,12 @@ struct FullPlayerSheet: View {
     .onAppear {
       updateSliderValue()
     }
-    .onChange(of: audioPlayer.currentTime) { _ in
+    .onChange(of: audioPlayer.currentTime) {
       if !isDragging {
         updateSliderValue()
       }
     }
-    .onChange(of: audioPlayer.duration) { _ in
+    .onChange(of: audioPlayer.duration) {
       if !isDragging {
         updateSliderValue()
       }
