@@ -2,7 +2,7 @@
 
 A iOS 18+ Music Player built with Swift and SwiftUI
 
-> [!WARN]
+> [!WARNING]
 > `xtool` is required to build and install development app into iDevice. (Only for Linux and Windows, expect MacOS since they already have Xcode)
 
 ## TODO
