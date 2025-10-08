@@ -16,6 +16,7 @@
 </div>
 
 <div align="center">
+    <img alt="Static Badge" src="https://img.shields.io/badge/made_with_swift-f05138?style=for-the-badge&logo=swift&logoColor=white">
     <img alt="GitHub License" src="https://img.shields.io/github/license/bloomdevelop/blitz-player?style=for-the-badge">
     <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/w/bloomdevelop/blitz-player?style=for-the-badge">
     <img alt="GitHub Issues or Pull Requests" src="https://img.shields.io/github/issues-pr/bloomdevelop/blitz-player?style=for-the-badge">
