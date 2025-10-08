@@ -1,11 +1,30 @@
-# Blitz Player
+<br />
+<div align="center">
+  <a href="https://github.com/bloomdevelop/blitz-player">
+    <img src=".github/assets/Icon.svg" alt="Logo" width="80" height="80">
+  </a>
 
-A iOS 18+ Music Player built with Swift and SwiftUI
+  <h3 align="center">Blitz Player</h3>
+
+  <p align="center">
+    iOS 18+ Music Player built with Swift and SwiftUI
+    <br />
+    <a href="https://github.com/bloomdevelop/blitz-player/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    &middot;
+    <a href="https://github.com/bloomdevelop/blitz-player/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+  </p>
+</div>
+
+<div align="center">
+    <img alt="GitHub License" src="https://img.shields.io/github/license/bloomdevelop/blitz-player?style=for-the-badge">
+    <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/w/bloomdevelop/blitz-player?style=for-the-badge">
+    <img alt="GitHub Issues or Pull Requests" src="https://img.shields.io/github/issues-pr/bloomdevelop/blitz-player?style=for-the-badge">
+</div>
 
 > [!WARNING]
 > `xtool` is required to build and install development app into iDevice. (Only for Linux and Windows, expect MacOS since they already have Xcode)
 
-## TODO
+## Roadmap
 
 ### Frontend
 
