@@ -21,9 +21,10 @@
     <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/w/bloomdevelop/blitz-player?style=for-the-badge">
     <img alt="GitHub Issues or Pull Requests" src="https://img.shields.io/github/issues-pr/bloomdevelop/blitz-player?style=for-the-badge">
 </div>
+<br>
 
 > [!WARNING]
-> `xtool` is required to build and install development app into iDevice. (Only for Linux and Windows, expect MacOS since they already have Xcode)
+> `xtool` is required to build and install development app to iDevice. (Only for Linux and Windows, expect MacOS since they already have Xcode)
 
 ## Roadmap
 
