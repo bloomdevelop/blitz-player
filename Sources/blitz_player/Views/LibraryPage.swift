@@ -22,7 +22,7 @@ struct LibraryPage: View {
       }
       NavigationLink {
         AlbumsView(
-          songs: songManager.songs, audioPlayer: audioPlayer,
+          songs: songManager.songs, audioPlayer: audioPlayer, songManager: songManager,
           selectedSong: $selectedSong
         )
         .navigationTitle("Albums")
@@ -44,6 +44,15 @@ struct LibraryPage: View {
           Image(systemName: "tag.fill")
             .foregroundColor(.primary)
           Text("Genres")
+        }
+      }
+      NavigationLink {
+        SearchView(songManager: songManager, audioPlayer: audioPlayer, selectedSong: $selectedSong)
+      } label: {
+        HStack {
+          Image(systemName: "magnifyingglass")
+            .foregroundColor(.primary)
+          Text("Search")
         }
       }
     }

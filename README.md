@@ -57,10 +57,11 @@
     - [X] AudioKit
     - [X] "Now Playing" support
 - [ ] Queue Functionality
-- [ ] Crossfade
+- [X] Crossfade
 - [ ] AutoMix
     - [ ] Investigate how does AutoMix works
     - [ ] Implement engine for AutoMix
+    - [ ] Make sure it does work
 
 ### Library Backend
 - [ ] Search Functionality
@@ -73,6 +74,14 @@
 ---
 
 ## Changelogs
+
+### 10-08-2025
+- Use chunk based song indexing
+- Implemented queue feature on both backend and frontend*
+- Implemented search* feature (useful for searching more than 1,000+ songs/albums)
+- Fix when indexing songs for the first time will cause the app to enter broken state which leads to crash
+
+\* Will be tested before ticking it off.
 
 ### 10-07-2025
 - Fixed app crash when attempting to load from database

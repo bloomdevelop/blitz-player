@@ -230,7 +230,29 @@ class DatabaseManager {
         }.value
 
         return songData.map { (dbSong, artistName, albumName, genreName) in
-            let url = URL(fileURLWithPath: dbSong.filePath)
+            // Resolve bookmark to get security-scoped URL if available
+            var url: URL
+            if let bookmarkData = dbSong.fileURLBookmark {
+                do {
+                    var isStale = false
+                    url = try URL(
+                        resolvingBookmarkData: bookmarkData,
+                        options: [.withoutUI, .withoutMounting],
+                        relativeTo: nil,
+                        bookmarkDataIsStale: &isStale
+                    )
+                    if isStale {
+                        // Fallback to file path URL if bookmark is stale
+                        url = URL(fileURLWithPath: dbSong.filePath)
+                    }
+                } catch {
+                    // Fallback to file path URL if bookmark resolution fails
+                    url = URL(fileURLWithPath: dbSong.filePath)
+                }
+            } else {
+                url = URL(fileURLWithPath: dbSong.filePath)
+            }
+
             var song = Song(url: url)
             song.title = dbSong.title
             song.artist = artistName
@@ -263,7 +285,30 @@ class DatabaseManager {
         }.value
 
         return songData.map { (dbSong, artistName, albumName, genreName) in
-            var song = Song(url: URL(fileURLWithPath: dbSong.filePath))
+            // Resolve bookmark to get security-scoped URL if available
+            var url: URL
+            if let bookmarkData = dbSong.fileURLBookmark {
+                do {
+                    var isStale = false
+                    url = try URL(
+                        resolvingBookmarkData: bookmarkData,
+                        options: [.withoutUI, .withoutMounting],
+                        relativeTo: nil,
+                        bookmarkDataIsStale: &isStale
+                    )
+                    if isStale {
+                        // Fallback to file path URL if bookmark is stale
+                        url = URL(fileURLWithPath: dbSong.filePath)
+                    }
+                } catch {
+                    // Fallback to file path URL if bookmark resolution fails
+                    url = URL(fileURLWithPath: dbSong.filePath)
+                }
+            } else {
+                url = URL(fileURLWithPath: dbSong.filePath)
+            }
+
+            var song = Song(url: url)
             song.title = dbSong.title
             song.artist = artistName
             song.album = albumName

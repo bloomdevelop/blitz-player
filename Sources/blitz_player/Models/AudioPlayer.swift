@@ -153,7 +153,8 @@ class AudioPlayer: ObservableObject, @unchecked Sendable {
 
   // MARK: - Next/Previous Playback
   @MainActor func playNext() {
-    guard let playlist = songManager?.songs, let current = currentSong, let index = playlist.firstIndex(where: { $0.id == current.id }) else { return }
+    let playlist = songManager?.queue.isEmpty == false ? songManager?.queue : songManager?.songs
+    guard let playlist = playlist, let current = currentSong, let index = playlist.firstIndex(where: { $0.id == current.id }) else { return }
     let nextIndex = (index + 1) % playlist.count
     let nextSong = playlist[nextIndex]
 
@@ -165,7 +166,8 @@ class AudioPlayer: ObservableObject, @unchecked Sendable {
   }
 
   @MainActor func playPrevious() {
-    guard let playlist = songManager?.songs, let current = currentSong, let index = playlist.firstIndex(where: { $0.id == current.id }) else { return }
+    let playlist = songManager?.queue.isEmpty == false ? songManager?.queue : songManager?.songs
+    guard let playlist = playlist, let current = currentSong, let index = playlist.firstIndex(where: { $0.id == current.id }) else { return }
     let prevIndex = (index - 1 + playlist.count) % playlist.count
     let prevSong = playlist[prevIndex]
 
@@ -292,7 +294,8 @@ class AudioPlayer: ObservableObject, @unchecked Sendable {
 
   // MARK: - Gapless Playback Methods
   @MainActor private func preloadNextSong() {
-    guard let playlist = songManager?.songs,
+    let playlist = songManager?.queue.isEmpty == false ? songManager?.queue : songManager?.songs
+    guard let playlist = playlist,
           let current = currentSong,
           let index = playlist.firstIndex(where: { $0.id == current.id }),
           !isCrossfading else { return }

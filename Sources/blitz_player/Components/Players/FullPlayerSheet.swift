@@ -6,6 +6,7 @@ struct FullPlayerSheet: View {
    @Binding var selectedSong: Song?
    @State private var sliderValue: CGFloat = 0
    @State private var isDragging = false
+   @State private var showQueue = false
 
    var song: Song?
    var navNamespace: Namespace.ID
@@ -92,8 +93,8 @@ struct FullPlayerSheet: View {
                 .font(.title)
                 .foregroundColor(textColor.opacity(0.9))
             }
-            .disabled(songManager.songs.count <= 1)
-            .opacity(songManager.songs.count <= 1 ? 0.5 : 1)
+            .disabled((songManager.queue.isEmpty ? songManager.songs.count : songManager.queue.count) <= 1)
+            .opacity((songManager.queue.isEmpty ? songManager.songs.count : songManager.queue.count) <= 1 ? 0.5 : 1)
 
             ReplacableIconButton(
               prevIcon: "play.fill", nextIcon: "pause.fill", isSwitched: $audioPlayer.isPlaying,
@@ -108,12 +109,80 @@ struct FullPlayerSheet: View {
                 .font(.title)
                 .foregroundColor(textColor.opacity(0.9))
             }
-            .disabled(songManager.songs.count <= 1)
-            .opacity(songManager.songs.count <= 1 ? 0.5 : 1)
+            .disabled((songManager.queue.isEmpty ? songManager.songs.count : songManager.queue.count) <= 1)
+            .opacity((songManager.queue.isEmpty ? songManager.songs.count : songManager.queue.count) <= 1 ? 0.5 : 1)
           }
           .padding(.horizontal, 32)
           .padding(.top, 24)
           .padding(.bottom, 40)
+
+          // Queue Toggle Button
+          Button(action: {
+            withAnimation {
+              showQueue.toggle()
+            }
+          }) {
+            HStack {
+              Image(systemName: "list.bullet")
+              Text("Queue (\(songManager.queue.count))")
+            }
+            .foregroundColor(textColor.opacity(0.9))
+            .padding(.vertical, 8)
+            .padding(.horizontal, 16)
+            .background(Color.black.opacity(0.2))
+            .cornerRadius(8)
+          }
+          .padding(.horizontal, 32)
+          .padding(.bottom, 20)
+
+          // Queue List
+          if showQueue && !songManager.queue.isEmpty {
+            List {
+              ForEach(songManager.queue.indices, id: \.self) { index in
+                let song = songManager.queue[index]
+                HStack {
+                  Text("\(index + 1)")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .frame(width: 30)
+                  VStack(alignment: .leading) {
+                    Text(song.name)
+                      .foregroundColor(song.id == audioPlayer.currentSong?.id ? .accentColor : textColor)
+                    Text(song.artist ?? "Unknown Artist")
+                      .font(.caption)
+                      .foregroundColor(.secondary)
+                  }
+                  Spacer()
+                  Button(action: {
+                    songManager.removeFromQueue(at: index)
+                  }) {
+                    Image(systemName: "xmark")
+                      .foregroundColor(.secondary)
+                  }
+                }
+                .swipeActions {
+                  Button(role: .destructive) {
+                    songManager.removeFromQueue(at: index)
+                  } label: {
+                    Label("Remove", systemImage: "trash")
+                  }
+                }
+                .onTapGesture {
+                  selectedSong = song
+                  audioPlayer.startPlayback(song: song)
+                }
+              }
+              .onMove { indices, newOffset in
+                songManager.moveQueueItem(from: indices, to: newOffset)
+              }
+            }
+            .listStyle(.plain)
+            .frame(height: 300)
+            .background(Color.black.opacity(0.1))
+            .cornerRadius(12)
+            .padding(.horizontal, 16)
+            .padding(.bottom, 20)
+          }
         }
       }
       .padding(16)

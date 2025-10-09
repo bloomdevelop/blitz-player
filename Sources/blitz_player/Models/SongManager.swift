@@ -121,11 +121,12 @@ struct Song: Identifiable, Codable {
 // MARK: - Song Manager Class
 @MainActor
 class SongManager: ObservableObject {
-  @Published var songs: [Song] = []
-  @Published var isIndexing: Bool = false
-  @Published var indexingProgress: Double = 0.0
-  @Published var indexingStatus: String = ""
-  private var currentSecurityScopedURL: URL?
+   @Published var songs: [Song] = []
+   @Published var queue: [Song] = []
+   @Published var isIndexing: Bool = false
+   @Published var indexingProgress: Double = 0.0
+   @Published var indexingStatus: String = ""
+   private var currentSecurityScopedURL: URL?
 
   // Artwork cache for performance
   private var artworkCache: [UUID: UIImage] = [:]
@@ -562,18 +563,35 @@ class SongManager: ObservableObject {
       // Get existing file paths before updating
       let existingFilePaths = try await DatabaseManager.shared.fetchAllSongs().map { $0.filePath }
 
-      for (index, song) in songs.enumerated() {
-        let bookmark = try? song.url.bookmarkData(
-          includingResourceValuesForKeys: nil,
-          relativeTo: nil
-        )
-        try await DatabaseManager.shared.insertSong(song, bookmark: bookmark)
+      // Chunk size for concurrent database insertions
+      let chunkSize = 4
+      var indexedCount = 0
 
-        // Update progress
-        let progress = 0.9 + (Double(index + 1) / Double(songs.count)) * 0.1
+      for (_, start) in stride(from: 0, to: songs.count, by: chunkSize).enumerated() {
+        let end = min(start + chunkSize, songs.count)
+        let chunk = Array(songs[start..<end])
+
+        // Insert songs in this chunk concurrently
+        try await withThrowingTaskGroup(of: Void.self) { group in
+          for song in chunk {
+            group.addTask {
+              let bookmark = try? song.url.bookmarkData(
+                includingResourceValuesForKeys: nil,
+                relativeTo: nil
+              )
+              try await DatabaseManager.shared.insertSong(song, bookmark: bookmark)
+            }
+          }
+          // Wait for all tasks in the group to complete
+          try await group.waitForAll()
+        }
+
+        // Update indexed count and progress
+        indexedCount += chunk.count
+        let progress = 0.9 + (Double(indexedCount) / Double(songs.count)) * 0.1
         await MainActor.run {
           self.indexingProgress = progress
-          self.indexingStatus = "Indexed \(index + 1) of \(songs.count) songs..."
+          self.indexingStatus = "Indexed \(indexedCount) of \(songs.count) songs..."
         }
       }
 
@@ -599,6 +617,32 @@ class SongManager: ObservableObject {
         self.indexingStatus = "Indexing failed"
       }
     }
+  }
+
+  // MARK: - Queue Management
+  func appendToQueue(_ song: Song) {
+    if !queue.contains(where: { $0.id == song.id }) {
+      queue.append(song)
+    }
+  }
+
+  func appendToQueue(_ songs: [Song]) {
+    for song in songs {
+      appendToQueue(song)
+    }
+  }
+
+  func clearQueue() {
+    queue.removeAll()
+  }
+
+  func removeFromQueue(at index: Int) {
+    guard index >= 0 && index < queue.count else { return }
+    queue.remove(at: index)
+  }
+
+  func moveQueueItem(from source: IndexSet, to destination: Int) {
+    queue.move(fromOffsets: source, toOffset: destination)
   }
 }
 // MARK: - Song Equatable

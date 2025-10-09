@@ -82,7 +82,7 @@ struct MiniPlayerComponent: View {
           size: 40,
           color: .primary
         )
-        .disabled(songManager.songs.count <= 1)
+        .disabled((songManager.queue.isEmpty ? songManager.songs.count : songManager.queue.count) <= 1)
         .scaleEffect(previousButtonScale)
 
         ReplacableIconButton(
@@ -125,7 +125,7 @@ struct MiniPlayerComponent: View {
           size: 40,
           color: .primary
         )
-        .disabled(songManager.songs.count <= 1)
+        .disabled((songManager.queue.isEmpty ? songManager.songs.count : songManager.queue.count) <= 1)
         .scaleEffect(nextButtonScale)
       }
       .padding(10)

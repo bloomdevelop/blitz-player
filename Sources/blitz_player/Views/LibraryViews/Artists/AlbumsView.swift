@@ -3,6 +3,7 @@ import SwiftUI
 struct AlbumsView: View {
   let songs: [Song]
   @ObservedObject var audioPlayer: AudioPlayer
+  @ObservedObject var songManager: SongManager
   @Binding var selectedSong: Song?
   @State private var grouped: [String: [Song]] = [:]
 
@@ -21,7 +22,7 @@ struct AlbumsView: View {
           NavigationLink(
             destination: AlbumSongsListView(
               songs: albumSongs, albumName: album, albumArtwork: artwork,
-              audioPlayer: audioPlayer,
+              audioPlayer: audioPlayer, songManager: songManager,
               selectedSong: $selectedSong
             )
           ) {
